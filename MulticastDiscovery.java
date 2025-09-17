@@ -22,7 +22,6 @@ public class MulticastDiscovery {
     private final ConcurrentMap<String, PeerInfo> peers = new ConcurrentHashMap<>();
 
     private final String myId;
-    private final String myName;
     private volatile boolean running = true;
 
     private static class PeerInfo {
@@ -65,8 +64,6 @@ public class MulticastDiscovery {
         this.socket.joinGroup(groupSocketAddress, netIf);
 
         this.myId = UUID.randomUUID().toString().replace("-", "").substring(0, 16);
-        this.myName = InetAddress.getLocalHost() != null ?
-                InetAddress.getLocalHost().getHostName() : "unknown";
         System.out.println(now() + " Launched id=" + myId + " iface=" +
                 netIf.getName() + " group=" + group.getHostAddress() + " port=" + port);
     }
