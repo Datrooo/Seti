@@ -11,7 +11,7 @@ public class MulticastDiscovery {
     private static final int SEND_INTERVAL_MS = 1000;
     private static final int PEER_TIMEOUT_MS = 5000;
     private static final String BEAT_PREFIX = "BEAT:";
-    private static final int MAX_MESSAGE_SIZE = 1024;
+    private static final int MAX_MESSAGE_SIZE = 500;
 
     private final InetAddress group;
     private final int port;
