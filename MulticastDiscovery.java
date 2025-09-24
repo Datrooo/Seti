@@ -46,9 +46,7 @@ public class MulticastDiscovery {
             throw new IOException("Can't find suitable network interface for group.");
         }
 
-        this.socket = new MulticastSocket(null);
-        this.socket.setReuseAddress(true);
-        this.socket.bind(new InetSocketAddress(port));
+        this.socket = new MulticastSocket(port);
 
         try {
             this.socket.setNetworkInterface(netIf);
