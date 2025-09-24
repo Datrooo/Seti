@@ -158,7 +158,7 @@ public class MulticastDiscovery {
             return;
         }
 
-        if (received == null || received.isEmpty()) return;
+        if (received.isEmpty()) return;
         if (!received.startsWith(BEAT_PREFIX)) return;
 
         int colon = received.indexOf(':');
@@ -234,7 +234,7 @@ public class MulticastDiscovery {
         System.out.println(now() + " Program stopped");
     }
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
         if (args.length < 1 || args.length > 3) {
             System.out.println("Usage: java MulticastDiscovery <group> [port] [ifaceName]");
             return;
