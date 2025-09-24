@@ -10,8 +10,8 @@ public class MulticastDiscovery {
     private static final int DEFAULT_PORT = 8888;
     private static final int SEND_INTERVAL_MS = 1000;
     private static final int PEER_TIMEOUT_MS = 5000;
-    private static final String BEAT_PREFIX = "BEAT:";
-    private static final int MAX_MESSAGE_SIZE = 500;
+    private static final String BEAT_PREFIX = "0";
+    private static final int MAX_MESSAGE_SIZE = 1024;
 
     private final InetAddress group;
     private final int port;
@@ -64,6 +64,7 @@ public class MulticastDiscovery {
         this.socket.joinGroup(groupSocketAddress, netIf);
 
         this.myId = UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+
         System.out.println(now() + " Launched id=" + myId + " iface=" +
                 netIf.getName() + " group=" + group.getHostAddress() + " port=" + port);
     }
@@ -117,8 +118,8 @@ public class MulticastDiscovery {
         }, 0, SEND_INTERVAL_MS, TimeUnit.MILLISECONDS);
 
         scheduler.execute(() -> {
-            byte[] buf = new byte[MAX_MESSAGE_SIZE];
             while (running) {
+                byte[] buf = new byte[MAX_MESSAGE_SIZE];
                 DatagramPacket packet = new DatagramPacket(buf, buf.length);
                 try {
                     socket.receive(packet);
@@ -135,51 +136,62 @@ public class MulticastDiscovery {
     }
 
     private void sendPresence() throws IOException {
-        String msg = BEAT_PREFIX + myId;
+        String payload = myId;
+        String msg = BEAT_PREFIX + payload.length() + ":" + payload;
         byte[] data = msg.getBytes(StandardCharsets.UTF_8);
 
-        DatagramPacket p = new DatagramPacket(data, data.length, group, port);
-        socket.send(p);
+        if (data.length > MAX_MESSAGE_SIZE) {
+            throw new IOException("Message too large: " + data.length);
+        }
+
+        DatagramPacket packet = new DatagramPacket(data, data.length, group, port);
+        socket.send(packet);
     }
+
 
     private void handlePacket(DatagramPacket packet) {
-        String receivedMessage;
+        String received;
         try {
-            receivedMessage = new String(packet.getData(), packet.getOffset(),
-                    packet.getLength(), StandardCharsets.UTF_8).trim();
+            received = new String(packet.getData(), packet.getOffset(),
+                    packet.getLength(), StandardCharsets.UTF_8);
         } catch (Exception e) {
             return;
         }
 
-        if (!receivedMessage.startsWith(BEAT_PREFIX)) {
+        if (received == null || received.isEmpty()) return;
+        if (!received.startsWith(BEAT_PREFIX)) return;
+
+        int colon = received.indexOf(':');
+        if (colon < 0) return;
+
+        int declaredLen;
+        try {
+            declaredLen = Integer.parseInt(received.substring(BEAT_PREFIX.length(), colon));
+        } catch (NumberFormatException e) {
             return;
         }
 
-        try {
-            String peerIdStr = receivedMessage.substring(BEAT_PREFIX.length()).trim(); // Remove prefix
+        String payload = received.substring(colon + 1);
+        if (payload.length() != declaredLen) {
+            return;
+        }
 
-            if (peerIdStr.isEmpty()) return;
+        String peerId = payload.trim();
+        if (peerId.isEmpty() || peerId.equals(myId)) return;
 
-            if (peerIdStr.equals(myId)) {
-                return;
-            }
+        InetAddress senderAddr = packet.getAddress();
+        long now = System.currentTimeMillis();
 
-            InetAddress senderAddr = packet.getAddress();
-            long now = System.currentTimeMillis();
-
-            PeerInfo prev = peers.putIfAbsent(peerIdStr, new PeerInfo(peerIdStr, senderAddr, now));
-            if (prev == null) {
-                System.out.println(now + " New peer: " + senderAddr.getHostAddress() + " id=" + peerIdStr);
-                printAliveIPs();
-            } else {
-                prev.address = senderAddr;
-                prev.lastSeen = now;
-            }
-
-        } catch (Exception e) {
-            System.err.println(now() + " Error processing message: " + receivedMessage + " -> " + e.getMessage());
+        PeerInfo prev = peers.putIfAbsent(peerId, new PeerInfo(peerId, senderAddr, now));
+        if (prev == null) {
+            System.out.println(now() + " New peer: " + senderAddr.getHostAddress() + " id=" + peerId);
+            printAlivePeers();
+        } else {
+            prev.address = senderAddr;
+            prev.lastSeen = now;
         }
     }
+
 
     private void cleanupPeers() {
         long now = System.currentTimeMillis();
@@ -198,18 +210,12 @@ public class MulticastDiscovery {
         }
 
         if (!removed.isEmpty()) {
-            printAliveIPs();
+            printAlivePeers();
         }
     }
 
-    private void printAliveIPs() {
-        Set<String> ips = new TreeSet<>();
-        for (PeerInfo pi : peers.values()) {
-            if (pi.address != null) {
-                ips.add(pi.address.getHostAddress());
-            }
-        }
-        System.out.println(now() + " Active peers (" + ips.size() + "): " + ips);
+    private void printAlivePeers() {
+        System.out.println(now() + " Active peers (" + peers.size() + "): " + peers.keySet());
     }
 
     private String now() {
@@ -230,7 +236,7 @@ public class MulticastDiscovery {
 
     public static void main(String[] args) throws Exception {
         if (args.length < 1 || args.length > 3) {
-            System.out.println("U should write: java MulticastDiscovery <group> [port] [ifaceName]");
+            System.out.println("Usage: java MulticastDiscovery <group> [port] [ifaceName]");
             return;
         }
 
@@ -248,9 +254,7 @@ public class MulticastDiscovery {
 
         multicastDiscovery.start();
 
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            multicastDiscovery.stop();
-        }));
+        Runtime.getRuntime().addShutdownHook(new Thread(multicastDiscovery::stop));
 
         try {
             Thread.sleep(Long.MAX_VALUE);
