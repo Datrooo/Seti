@@ -3,22 +3,27 @@
  *
  * This generated file contains a sample Java application project to get you started.
  * For more details on building Java & JVM projects, please refer to https://docs.gradle.org/9.1.0/userguide/building_java_projects.html in the Gradle documentation.
- * This project uses @Incubating APIs which are subject to change.
  */
 
 plugins {
-    id 'application'
+    // Apply the application plugin to add support for building a CLI application in Java.
+    application
 }
 
 repositories {
+    // Use Maven Central for resolving dependencies.
     mavenCentral()
 }
 
 dependencies {
-    implementation 'com.google.guava:guava:32.1.2-jre'
-    testImplementation 'junit:junit:4.13.2'
+    // Use JUnit test framework.
+    testImplementation(libs.junit)
+
+    // This dependency is used by the application.
+    implementation(libs.guava)
 }
 
+// Apply a specific Java toolchain to ease working on different environments.
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
@@ -26,5 +31,6 @@ java {
 }
 
 application {
-    mainClass = 'org.example.MulticastDiscovery'
+    // Define the main class for the application.
+    mainClass = "org.example.Client"
 }
