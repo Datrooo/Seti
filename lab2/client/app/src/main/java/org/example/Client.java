@@ -7,12 +7,11 @@ import java.nio.file.*;
 
 public class Client {
     
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
         ClientConfig config = parseArguments(args);
         if (config == null) {
             return;
         }
-        
         transferFile(config);
     }
     
@@ -139,16 +138,7 @@ public class Client {
         else
             System.out.println("[Client] File transfer failed.");
     }
-    
-    private static class ClientConfig {
-        final String host;
-        final int port;
-        final Path filePath;
-        
-        ClientConfig(String host, int port, Path filePath) {
-            this.host = host;
-            this.port = port;
-            this.filePath = filePath;
-        }
+
+    private record ClientConfig(String host, int port, Path filePath) {
     }
 }

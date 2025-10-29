@@ -7,6 +7,7 @@ import java.nio.file.*;
 import java.time.LocalTime;
 import java.util.Map;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class Server {
@@ -17,6 +18,9 @@ public class Server {
     private final ScheduledExecutorService statsScheduler;
     private final ConcurrentHashMap<SocketAddress, ClientStats> activeClients = new ConcurrentHashMap<>();
 
+    private final AtomicBoolean running = new AtomicBoolean(false);
+    private volatile ServerSocket serverSocket;
+
     public Server(int port, int maxClients) throws IOException {
         this.port = port;
         this.uploadsDir = Paths.get("uploads").toAbsolutePath().normalize();
@@ -24,29 +28,58 @@ public class Server {
 
         this.clientPool = Executors.newFixedThreadPool(maxClients);
         this.statsScheduler = Executors.newSingleThreadScheduledExecutor();
-        this.statsScheduler.scheduleAtFixedRate(this::printAllStats, 3, 3, TimeUnit.SECONDS);
     }
 
-    public void start() throws IOException {
-        try (ServerSocket serverSocket = new ServerSocket(port)) {
+    public void start() {
+        if (!running.compareAndSet(false, true)) {
+            System.out.println(time() + " Server already running");
+            return;
+        }
+
+        statsScheduler.scheduleAtFixedRate(this::printAllStats, 3, 3, TimeUnit.SECONDS);
+
+        try (ServerSocket ss = new ServerSocket(port)) {
+            serverSocket = ss;
+            ss.setReuseAddress(true);
+            ss.setSoTimeout(1000);
+
             System.out.println(time() + " Server started on port " + port);
-            while (true) {
-                Socket client = serverSocket.accept();
-                clientPool.submit(new ClientHandler(client, uploadsDir, this));
+
+            while (running.get()) {
+                try {
+                    Socket client = ss.accept();
+                    clientPool.execute(new ClientHandler(client, uploadsDir, this));
+                } catch (SocketTimeoutException ignore) {}
+            }
+        } catch (IOException e) {
+            if (running.get()) {
+                System.err.println(time() + " Server I/O error: " + e.getMessage());
             }
         } finally {
-            clientPool.shutdown();
-            statsScheduler.shutdown();
+            stop();
             System.out.println(time() + " Server shut down.");
         }
+    }
+
+    public void stop() {
+        if (!running.compareAndSet(true, false)) return;
+
+        try {
+            if (serverSocket != null && !serverSocket.isClosed()) {
+                serverSocket.close();
+            }
+        } catch (IOException ignore) {}
+
+        statsScheduler.shutdownNow();
+        clientPool.shutdownNow();
     }
 
     void registerClient(SocketAddress addr, ClientStats stats) {
         activeClients.put(addr, stats);
     }
 
-    void unregisterClient(SocketAddress addr, boolean printFinal) {
-        if (printFinal && activeClients.containsKey(addr)) {
+    void unregisterClient(SocketAddress addr) {
+        if (activeClients.containsKey(addr)) {
             printStatsFor(addr, activeClients.get(addr));
         }
         activeClients.remove(addr);
@@ -80,14 +113,25 @@ public class Server {
         return "[" + LocalTime.now().withNano(0) + "]";
     }
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
         if (args.length != 2) {
             System.out.println("Usage: java Server <port> <maxClients>");
             return;
         }
         int port = Integer.parseInt(args[0]);
         int maxClients = Integer.parseInt(args[1]);
-        new Server(port, maxClients).start();
+
+        Server server;
+        try {
+            server = new Server(port, maxClients);
+        } catch (IOException e) {
+            System.err.println(time() + " Init failed: " + e.getMessage());
+            return;
+        }
+
+        Runtime.getRuntime().addShutdownHook(new Thread(server::stop));
+
+        server.start();
     }
 
     static class ClientStats {
@@ -114,12 +158,12 @@ public class Server {
             ClientStats stats = new ClientStats();
             server.registerClient(addr, stats);
 
-            Path tmp = null;
             try (DataInputStream in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
-                 DataOutputStream out = new DataOutputStream(socket.getOutputStream())) {
+                 DataOutputStream out = new DataOutputStream(socket.getOutputStream());
+                 socket) {
 
                 int nameLen = in.readInt();
-                if (nameLen <= 0 || nameLen > 4096) throw new IOException("Invalid filename length");
+                if (nameLen <= 0 || nameLen > 4096) throw new IllegalArgumentException("Invalid filename length");
 
                 byte[] nameBytes = new byte[nameLen];
                 in.readFully(nameBytes);
@@ -127,7 +171,7 @@ public class Server {
 
                 long declaredSize = in.readLong();
                 if (declaredSize < 0 || declaredSize > (1L << 40))
-                    throw new IOException("Invalid file size");
+                    throw new IllegalArgumentException("Invalid file size");
 
                 String safeName = Paths.get(filename).getFileName().toString();
                 Path finalPath = uploadsDir.resolve(safeName).normalize();
@@ -136,45 +180,45 @@ public class Server {
 
                 String prefix = (safeName + ".").replaceAll("[/\\\\]", ".");
                 if (prefix.length() < 3) prefix = "up_";
-                tmp = Files.createTempFile(uploadsDir, prefix, ".part");
 
-                System.out.println(Server.time() + " Receiving file '" + safeName + "' from " + addr);
+                Path tmp = Files.createTempFile(uploadsDir, prefix, ".part");
+                boolean success = false;
+                try {
+                    System.out.println(Server.time() + " Receiving file '" + safeName + "' from " + addr);
 
-                long received = 0;
-                try (OutputStream fout = new BufferedOutputStream(Files.newOutputStream(tmp))) {
-                    byte[] buf = new byte[64 * 1024];
-                    while (received < declaredSize) {
-                        int toRead = (int) Math.min(buf.length, declaredSize - received);
-                        int r = in.read(buf, 0, toRead);
-                        if (r == -1) throw new EOFException("Client disconnected");
-                        fout.write(buf, 0, r);
-                        received += r;
-                        stats.totalBytes.addAndGet(r);
-                        stats.bytesSinceLast.addAndGet(r);
+                    try (OutputStream fout = new BufferedOutputStream(Files.newOutputStream(tmp))) {
+                        long received = 0;
+                        byte[] buf = new byte[64 * 1024];
+                        while (received < declaredSize) {
+                            int toRead = (int) Math.min(buf.length, declaredSize - received);
+                            int r = in.read(buf, 0, toRead);
+                            if (r == -1) throw new EOFException("Client disconnected");
+                            fout.write(buf, 0, r);
+                            received += r;
+                            stats.totalBytes.addAndGet(r);
+                            stats.bytesSinceLast.addAndGet(r);
+                        }
+                    }
+
+                    try {
+                        Files.move(tmp, finalPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                    } catch (AtomicMoveNotSupportedException e) {
+                        Files.move(tmp, finalPath, StandardCopyOption.REPLACE_EXISTING);
+                    }
+
+                    System.out.println(Server.time() + " File '" + safeName + "' received successfully from " + addr);
+                    out.flush();
+                    success = true;
+                } finally {
+                    if (!success) {
+                        try { Files.deleteIfExists(tmp); } catch (IOException ignored) {}
                     }
                 }
 
-                try {
-                    Files.move(tmp, finalPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-                } catch (AtomicMoveNotSupportedException e) {
-                    Files.move(tmp, finalPath, StandardCopyOption.REPLACE_EXISTING);
-                }
-                tmp = null;
-
-                System.out.println(Server.time() + " File '" + safeName + "' received successfully from " + addr);
-
-                if (Files.size(finalPath) == declaredSize) out.writeByte(1);
-                else {
-                    System.err.println(Server.time() + " Size mismatch for '" + safeName + "'");
-                    out.writeByte(0);
-                }
-                out.flush();
-
             } catch (IOException e) {
                 System.err.println(Server.time() + " " + addr + " error: " + e.getMessage());
-                if (tmp != null) try { Files.deleteIfExists(tmp); } catch (IOException ignored) {}
             } finally {
-                server.unregisterClient(addr, true);
+                server.unregisterClient(addr);
                 try { socket.close(); } catch (IOException ignored) {}
             }
         }
