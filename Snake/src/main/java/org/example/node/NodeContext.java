@@ -9,7 +9,7 @@ import org.example.network.NetworkManager;
 import java.net.InetSocketAddress;
 
 public class NodeContext {
-    private final NetworkManager networkManager;
+    private  NetworkManager networkManager;
     private final Player localPlayer;
     private final String gameName;
     private final GameConfig gameConfig;
@@ -93,6 +93,9 @@ public class NodeContext {
         if (nodeChangeListener != null) {
             nodeChangeListener.onNodeRoleChanged(newRole);
         }
+    }
+    public void setNetworkManager(NetworkManager nm) {
+        this.networkManager = nm;
     }
 
 

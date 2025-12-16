@@ -10,8 +10,10 @@ import org.example.game.serialization.StateSerializer;
 import org.example.network.NetworkManager;
 import org.example.network.PeerInfo;
 import org.example.protocol.SnakesProto;
+import org.example.util.Config;
 import org.example.util.Logger;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -75,7 +77,11 @@ public class DeputyNode extends Node {
         }
 
         if (newRole == NodeRole.MASTER) {
-            promoteToMaster();
+            try {
+                promoteToMaster();
+            } catch (IOException e) {
+                Logger.error("Promote to master failed: {}", e.getMessage(), e);
+            }
         }
     }
 
@@ -102,11 +108,16 @@ public class DeputyNode extends Node {
 
         if (elapsed > timeoutMs) {
             Logger.warn("Master timed out! Elapsed: {}ms, promoting to MASTER", elapsed);
-            promoteToMaster();
+            try {
+                promoteToMaster();
+            } catch (IOException e) {
+                Logger.error("Promote to master failed: {}", e.getMessage(), e);
+            }
         }
+
     }
 
-    private void promoteToMaster() {
+    private void promoteToMaster() throws IOException {
         Logger.info("Deputy promoting to MASTER");
 
         GameState currentState = context.getCurrentState();
@@ -144,6 +155,13 @@ public class DeputyNode extends Node {
                     Logger.info("Removed old master player {} from game state", oldMasterId);                }
             }
         }
+        NetworkManager oldNm = context.getNetworkManager();
+        oldNm.stop();
+
+        NetworkManager newNm = new NetworkManager(Config.DEFAULT_PORT);
+        newNm.start();
+        context.setNetworkManager(newNm);
+
 
         registerPeersFromState(currentState);
         context.setMasterAddress(null);
