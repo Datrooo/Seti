@@ -119,29 +119,29 @@ public class GameService {
         context.setMasterAddress(masterAddress);
         this.nodeContext.set(context);
 
-        // ВАЖНО: Сначала регистрируем мастера как peer
-        network.registerPeer(masterAddress, 0);
+        // НЕ регистрируем мастера заранее - пусть обработается через RoleChange
 
-        // Отправляем JoinMsg ОДИН РАЗ с уникальным seq
+        // Создаем узел ПЕРЕД отправкой JOIN
+        Node node = createNodeByRole(context, requestedRole);
+        node.start(); // Запускаем - он подпишется на RoleChange
+        this.currentNode.set(node);
+
+        // Отправляем JoinMsg ОДИН РАЗ без повторений
         SnakesProto.GameMessage joinMsg = MessageBuilder.createJoin(
                 playerName,
                 announcement.getGameName(),
                 requestedRole
         );
 
-        network.sendWithAck(joinMsg, masterAddress);
-
+        // Используем простую отправку без ACK
+        network.send(joinMsg, masterAddress);
 
         Logger.info("Join request sent to master at {}", masterAddress);
 
-        // Создаем узел ПОСЛЕ отправки JOIN
-        Node node = createNodeByRole(context, requestedRole);
-        node.start();
-        this.currentNode.set(node);
-
         active = true;
-        Logger.info("Joined game successfully as {}", requestedRole);
+        Logger.info("Client started, waiting for role assignment");
     }
+
 
 
     /**
