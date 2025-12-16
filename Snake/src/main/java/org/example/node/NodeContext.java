@@ -7,42 +7,28 @@ import org.example.game.model.Player;
 import org.example.network.NetworkManager;
 
 import java.net.InetSocketAddress;
-import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * Общий контекст для всех узлов игры
- */
 public class NodeContext {
     private final NetworkManager networkManager;
     private final Player localPlayer;
     private final String gameName;
     private final GameConfig gameConfig;
-    private final AtomicReference<GameEngine> gameEngine;
-    private final AtomicReference<InetSocketAddress> masterAddress;
-    private final AtomicReference<InetSocketAddress> deputyAddress;
+    private GameEngine gameEngine;
+    private InetSocketAddress masterAddress;
+    private InetSocketAddress deputyAddress;  // ← ДОБАВЛЕНО
     private volatile GameState currentState;
+    private NodeChangeListener nodeChangeListener;
 
-    public NodeContext(
-            NetworkManager networkManager,
-            Player localPlayer,
-            String gameName,
-            GameConfig gameConfig) {
+    public NodeContext(NetworkManager networkManager, Player localPlayer, String gameName, GameConfig gameConfig) {
         this.networkManager = networkManager;
         this.localPlayer = localPlayer;
         this.gameName = gameName;
         this.gameConfig = gameConfig;
-        this.gameEngine = new AtomicReference<>(null);
-        this.masterAddress = new AtomicReference<>(null);
-        this.deputyAddress = new AtomicReference<>(null);
-    }
-
-
-    public GameState getCurrentState() {
-        return currentState;
-    }
-
-    public void setCurrentState(GameState state) {
-        this.currentState = state;
+        this.gameEngine = null;
+        this.masterAddress = null;
+        this.deputyAddress = null;  // ← ДОБАВЛЕНО
+        this.currentState = null;
+        this.nodeChangeListener = null;
     }
 
     public NetworkManager getNetworkManager() {
@@ -62,26 +48,44 @@ public class NodeContext {
     }
 
     public GameEngine getGameEngine() {
-        return gameEngine.get();
+        return gameEngine;
     }
 
-    public void setGameEngine(GameEngine engine) {
-        this.gameEngine.set(engine);
+    public void setGameEngine(GameEngine gameEngine) {
+        this.gameEngine = gameEngine;
     }
 
     public InetSocketAddress getMasterAddress() {
-        return masterAddress.get();
+        return masterAddress;
     }
 
-    public void setMasterAddress(InetSocketAddress address) {
-        this.masterAddress.set(address);
+    public void setMasterAddress(InetSocketAddress masterAddress) {
+        this.masterAddress = masterAddress;
     }
 
+    // ← ДОБАВЛЕНО
     public InetSocketAddress getDeputyAddress() {
-        return deputyAddress.get();
+        return deputyAddress;
     }
 
-    public void setDeputyAddress(InetSocketAddress address) {
-        this.deputyAddress.set(address);
+    // ← ДОБАВЛЕНО
+    public void setDeputyAddress(InetSocketAddress deputyAddress) {
+        this.deputyAddress = deputyAddress;
+    }
+
+    public GameState getCurrentState() {
+        return currentState;
+    }
+
+    public void setCurrentState(GameState state) {
+        this.currentState = state;
+    }
+
+    public NodeChangeListener getNodeChangeListener() {
+        return nodeChangeListener;
+    }
+
+    public void setNodeChangeListener(NodeChangeListener listener) {
+        this.nodeChangeListener = listener;
     }
 }

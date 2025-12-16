@@ -27,24 +27,15 @@ public class NormalNode extends Node {
     protected void registerMessageHandlers() {
         NetworkManager network = context.getNetworkManager();
 
-        // Обработка State (получение состояния от MASTER)
         network.getDispatcher().onState(this::handleState);
-
-        // Обработка RoleChange
         network.getDispatcher().onRoleChange(this::handleRoleChangeMessage);
-
-        // Обработка Error
         network.getDispatcher().onError(this::handleError);
-
-        // Обработка Ping
         network.getDispatcher().onPing(this::handlePing);
     }
 
     @Override
     protected void onStart() {
-        // Запускаем отправку Ping мастеру
         startPingTask();
-
         Logger.info("NormalNode started, master at {}", context.getMasterAddress());
     }
 
@@ -63,15 +54,15 @@ public class NormalNode extends Node {
             context.setMasterAddress(newMasterAddress);
         }
 
-        // Если стали Deputy - нужно следить за мастером
+        // ← ДОБАВЛЕНО: Уведомляем GameService о смене роли
         if (newRole == NodeRole.DEPUTY) {
-            Logger.info("Promoted to DEPUTY, monitoring master");
+            Logger.info("Promoted to DEPUTY, notifying GameService to switch node");
+            if (context.getNodeChangeListener() != null) {
+                context.getNodeChangeListener().onNodeRoleChanged(newRole);
+            }
         }
     }
 
-    /**
-     * Отправка направления движения мастеру
-     */
     public void steer(Direction direction) {
         if (!running) {
             return;
@@ -94,39 +85,29 @@ public class NormalNode extends Node {
         Logger.debug("Sent steer: {}", direction);
     }
 
-    /**
-     * Обработка StateMsg от мастера
-     */
     private void handleState(SnakesProto.GameMessage message, InetSocketAddress sender) {
         if (!message.hasState()) {
             return;
         }
 
-        // Обновляем состояние игры
         GameState newState = StateSerializer.fromProto(
                 message.getState().getState(),
                 context.getGameConfig()
         );
 
-        // ДЛЯ MASTER - обновляем GameEngine
         if (context.getGameEngine() != null) {
             context.getGameEngine().setGameState(newState);
         }
 
-        // ДЛЯ ВСЕХ - сохраняем в context
-        context.setCurrentState(newState);  // ← ДОБАВЬТЕ ЭТО!
+        // ← ДОБАВЛЕНО
+        context.setCurrentState(newState);
 
-        // Отправляем ACK
         context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
         context.getNetworkManager().updatePeerActivity(sender);
 
         Logger.debug("Received state order={}", newState.getStateOrder());
     }
 
-
-    /**
-     * Обработка RoleChangeMsg
-     */
     private void handleRoleChangeMessage(SnakesProto.GameMessage message, InetSocketAddress sender) {
         if (!message.hasRoleChange()) {
             return;
@@ -136,18 +117,15 @@ public class NormalNode extends Node {
 
         Logger.info("Received RoleChange from {}", sender);
 
-        // Проверяем, это нам адресовано
         if (message.hasReceiverId()) {
             int receiverId = message.getReceiverId();
 
-            // Обновляем свой ID
             if (context.getLocalPlayer().getId() != receiverId) {
                 Logger.info("Updating player ID from {} to {}",
                         context.getLocalPlayer().getId(), receiverId);
                 context.getLocalPlayer().setId(receiverId);
             }
 
-            // ВАЖНО: Регистрируем мастера как peer СЕЙЧАС
             int masterId = message.getSenderId();
             context.getNetworkManager().registerPeer(sender, masterId);
             Logger.info("Registered master {} with id {}", sender, masterId);
@@ -158,25 +136,18 @@ public class NormalNode extends Node {
             }
         }
 
-        // Если отправитель становится мастером
         if (roleChange.hasSenderRole() &&
                 roleChange.getSenderRole() == SnakesProto.NodeRole.MASTER) {
             context.setMasterAddress(sender);
             Logger.info("New master: {}", sender);
         }
 
-        // Отправляем ACK
         context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
         context.getNetworkManager().updatePeerActivity(sender);
 
         Logger.info("Role assignment complete, starting normal operations");
     }
 
-
-
-    /**
-     * Периодическая отправка Ping мастеру
-     */
     private void startPingTask() {
         int pingDelayMs = context.getGameConfig().pingDelayMs();
 
@@ -197,7 +168,7 @@ public class NormalNode extends Node {
 
         SnakesProto.GameMessage ping = MessageBuilder.createPing(
                 context.getLocalPlayer().getId(),
-                0 // Master ID (можно получить из состояния)
+                0
         );
 
         context.getNetworkManager().sendWithAck(ping, masterAddr);

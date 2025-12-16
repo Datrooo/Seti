@@ -30,30 +30,21 @@ public class DeputyNode extends Node {
     protected void registerMessageHandlers() {
         NetworkManager network = context.getNetworkManager();
 
-        // Обработка State (получение состояния от MASTER)
         network.getDispatcher().onState(this::handleState);
-
-        // Обработка RoleChange
         network.getDispatcher().onRoleChange(this::handleRoleChangeMessage);
-
-        // Обработка Error
         network.getDispatcher().onError(this::handleError);
-
-        // Обработка Ping
         network.getDispatcher().onPing(this::handlePing);
     }
 
     @Override
     protected void onStart() {
-        Logger.info("DeputyNode.onStart() called"); // ← ДОБАВЬТЕ!
+        Logger.info("DeputyNode.onStart() called");
 
-        // Запускаем отправку Ping мастеру
         startPingTask();
-        Logger.info("Ping task started"); // ← ДОБАВЬТЕ!
+        Logger.info("Ping task started");
 
-        // Запускаем проверку таймаута мастера
         startMasterTimeoutChecker();
-        Logger.info("Master timeout checker started"); // ← ДОБАВЬТЕ!
+        Logger.info("Master timeout checker started");
 
         Logger.info("DeputyNode started, monitoring master at {}", context.getMasterAddress());
     }
@@ -74,35 +65,28 @@ public class DeputyNode extends Node {
         }
 
         if (newRole == NodeRole.MASTER) {
-            // Становимся мастером
             promoteToMaster();
         }
     }
 
-    /**
-     * Запуск проверки таймаута мастера
-     */
     private void startMasterTimeoutChecker() {
         int timeoutMs = context.getGameConfig().nodeTimeoutMs();
 
         Logger.info("startMasterTimeoutChecker: timeoutMs={}, interval={}ms",
-                timeoutMs, timeoutMs / 2); // ← ДОБАВЬТЕ!
+                timeoutMs, timeoutMs / 2);
 
         scheduler.scheduleAtFixedRate(() -> {
             try {
-                Logger.debug("Running checkMasterTimeout..."); // ← ДОБАВЬТЕ!
+                Logger.debug("Running checkMasterTimeout...");
                 checkMasterTimeout();
             } catch (Exception e) {
                 Logger.error("Error checking master timeout: {}", e.getMessage(), e);
             }
         }, timeoutMs, timeoutMs / 2, TimeUnit.MILLISECONDS);
 
-        Logger.info("Scheduled master timeout checker"); // ← ДОБАВЬТЕ!
+        Logger.info("Scheduled master timeout checker");
     }
 
-    /**
-     * Проверка таймаута мастера через NetworkManager
-     */
     private void checkMasterTimeout() {
         long now = System.currentTimeMillis();
         long lastActivity = lastMasterActivity.get();
@@ -117,15 +101,12 @@ public class DeputyNode extends Node {
         }
     }
 
-    /**
-     * Повышение Deputy до Master
-     */
     private void promoteToMaster() {
         Logger.info("Deputy promoting to MASTER");
 
         // Обновляем роль локального игрока
         context.getLocalPlayer().setRole(NodeRole.MASTER);
-        context.setMasterAddress(null); // Мы теперь мастер
+        context.setMasterAddress(null);
 
         // Рассылаем ПЕРЕД остановкой scheduler!
         broadcastNewMaster();
@@ -140,15 +121,10 @@ public class DeputyNode extends Node {
         Logger.info("Successfully promoted to MASTER");
     }
 
-
-    /**
-     * Рассылка уведомления о новом мастере всем игрокам
-     */
     private void broadcastNewMaster() {
         NetworkManager network = context.getNetworkManager();
         int myId = context.getLocalPlayer().getId();
 
-        // Получаем всех peer'ов
         for (var peer : network.getAllPeers()) {
             SnakesProto.GameMessage roleChange = MessageBuilder.createRoleChange(
                     myId,
@@ -163,9 +139,6 @@ public class DeputyNode extends Node {
         Logger.info("Broadcasted new master role to all players");
     }
 
-    /**
-     * Отправка направления движения мастеру
-     */
     public void steer(Direction direction) {
         if (!running) {
             return;
@@ -188,39 +161,30 @@ public class DeputyNode extends Node {
         Logger.debug("Sent steer: {}", direction);
     }
 
-    /**
-     * Обработка StateMsg от мастера
-     */
     private void handleState(SnakesProto.GameMessage message, InetSocketAddress sender) {
         if (!message.hasState()) {
             return;
         }
+
         lastMasterActivity.set(System.currentTimeMillis());
 
-        // Обновляем состояние игры
         GameState newState = StateSerializer.fromProto(
                 message.getState().getState(),
                 context.getGameConfig()
         );
 
-        // Для MASTER - обновляем GameEngine
         if (context.getGameEngine() != null) {
             context.getGameEngine().setGameState(newState);
         }
 
-        // Для всех - сохраняем в context
         context.setCurrentState(newState);
 
-        // Отправляем ACK
         context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
         context.getNetworkManager().updatePeerActivity(sender);
 
         Logger.debug("Received state order={} from master", newState.getStateOrder());
     }
 
-    /**
-     * Обработка RoleChangeMsg
-     */
     private void handleRoleChangeMessage(SnakesProto.GameMessage message, InetSocketAddress sender) {
         if (!message.hasRoleChange()) {
             return;
@@ -228,7 +192,6 @@ public class DeputyNode extends Node {
 
         SnakesProto.GameMessage.RoleChangeMsg roleChange = message.getRoleChange();
 
-        // Проверяем, это нам адресовано
         if (message.hasReceiverId() &&
                 message.getReceiverId() == context.getLocalPlayer().getId()) {
 
@@ -238,21 +201,17 @@ public class DeputyNode extends Node {
             }
         }
 
-        // Если отправитель становится мастером
         if (roleChange.hasSenderRole() &&
                 roleChange.getSenderRole() == SnakesProto.NodeRole.MASTER) {
             context.setMasterAddress(sender);
+            lastMasterActivity.set(System.currentTimeMillis());
             Logger.info("New master: {}", sender);
         }
 
-        // Отправляем ACK
         context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
         context.getNetworkManager().updatePeerActivity(sender);
     }
 
-    /**
-     * Периодическая отправка Ping мастеру
-     */
     private void startPingTask() {
         int pingDelayMs = context.getGameConfig().pingDelayMs();
 

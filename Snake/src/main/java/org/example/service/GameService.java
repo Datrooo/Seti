@@ -17,9 +17,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * Центральный сервис для управления игровой сессией
- */
 public class GameService {
     private final AtomicReference<NetworkManager> networkManager;
     private final AtomicReference<Node> currentNode;
@@ -33,9 +30,6 @@ public class GameService {
         this.active = false;
     }
 
-    /**
-     * Создает новую игру (становится MASTER)
-     */
     public void createGame(String gameName, String playerName, GameConfig config) throws IOException {
         if (active) {
             throw new IllegalStateException("Game session already active");
@@ -43,26 +37,22 @@ public class GameService {
 
         Logger.info("Creating new game: {}", gameName);
 
-        // Инициализируем сеть
         NetworkManager network = new NetworkManager(Config.DEFAULT_PORT);
         network.start();
         this.networkManager.set(network);
 
-        // Создаем локального игрока
         int playerId = IdGenerator.generatePlayerId();
         Player localPlayer = new Player(
                 playerId,
                 playerName,
-                null, // Адрес не нужен для локального игрока
+                null,
                 NodeRole.MASTER,
                 PlayerType.HUMAN
         );
 
-        // Создаем контекст
         NodeContext context = new NodeContext(network, localPlayer, gameName, config);
         this.nodeContext.set(context);
 
-        // Создаем MasterNode
         MasterNode masterNode = new MasterNode(context);
         masterNode.start();
         this.currentNode.set(masterNode);
@@ -71,12 +61,6 @@ public class GameService {
         Logger.info("Game created successfully as MASTER");
     }
 
-    /**
-     * Присоединяется к существующей игре
-     */
-    /**
-     * Присоединяется к существующей игре
-     */
     public void joinGame(
             SnakesProto.GameAnnouncement announcement,
             String playerName,
@@ -89,12 +73,10 @@ public class GameService {
 
         Logger.info("Joining game: {}", announcement.getGameName());
 
-        // Инициализируем сеть
         NetworkManager network = new NetworkManager(Config.DEFAULT_PORT);
         network.start();
         this.networkManager.set(network);
 
-        // Создаем локального игрока (ID назначит мастер)
         int tempPlayerId = IdGenerator.generatePlayerId();
         Player localPlayer = new Player(
                 tempPlayerId,
@@ -104,12 +86,10 @@ public class GameService {
                 PlayerType.HUMAN
         );
 
-        // Получаем конфигурацию из announcement
         GameConfig config = org.example.game.serialization.StateSerializer.configFromProto(
                 announcement.getConfig()
         );
 
-        // Создаем контекст
         NodeContext context = new NodeContext(
                 network,
                 localPlayer,
@@ -117,23 +97,22 @@ public class GameService {
                 config
         );
         context.setMasterAddress(masterAddress);
+
+        // ← ДОБАВЛЕНО: Устанавливаем listener для смены роли
+        context.setNodeChangeListener(this::switchNode);
+
         this.nodeContext.set(context);
 
-        // НЕ регистрируем мастера заранее - пусть обработается через RoleChange
-
-        // Создаем узел ПЕРЕД отправкой JOIN
         Node node = createNodeByRole(context, requestedRole);
-        node.start(); // Запускаем - он подпишется на RoleChange
+        node.start();
         this.currentNode.set(node);
 
-        // Отправляем JoinMsg ОДИН РАЗ без повторений
         SnakesProto.GameMessage joinMsg = MessageBuilder.createJoin(
                 playerName,
                 announcement.getGameName(),
                 requestedRole
         );
 
-        // Используем простую отправку без ACK
         network.send(joinMsg, masterAddress);
 
         Logger.info("Join request sent to master at {}", masterAddress);
@@ -142,14 +121,6 @@ public class GameService {
         Logger.info("Client started, waiting for role assignment");
     }
 
-
-
-    /**
-     * Отправляет команду управления змейкой
-     */
-    /**
-     * Отправляет команду управления змейкой
-     */
     public void steer(Direction direction) {
         Node node = currentNode.get();
         if (node == null) {
@@ -157,7 +128,6 @@ public class GameService {
             return;
         }
 
-        // Если мы MASTER - управляем напрямую через GameEngine
         if (node.getRole() == NodeRole.MASTER) {
             NodeContext context = nodeContext.get();
             if (context != null && context.getGameEngine() != null) {
@@ -168,7 +138,6 @@ public class GameService {
             return;
         }
 
-        // Для NORMAL и DEPUTY - отправляем SteerMsg мастеру
         if (node instanceof NormalNode normalNode) {
             normalNode.steer(direction);
         } else if (node instanceof DeputyNode deputyNode) {
@@ -178,10 +147,6 @@ public class GameService {
         }
     }
 
-
-    /**
-     * Получает текущее состояние игры
-     */
     public GameState getGameState() {
         NodeContext context = nodeContext.get();
         if (context == null) {
@@ -194,13 +159,9 @@ public class GameService {
         }
 
         // Для NORMAL/DEPUTY - берем из context
-        return context.getCurrentState();  // ← ДОБАВЬТЕ ЭТО!
+        return context.getCurrentState();
     }
 
-
-    /**
-     * Получает конфигурацию игры
-     */
     public GameConfig getGameConfig() {
         NodeContext context = nodeContext.get();
         return context != null ? context.getGameConfig() : null;
@@ -210,25 +171,17 @@ public class GameService {
         return nodeContext.get();
     }
 
-    /**
-     * Получает локального игрока
-     */
     public Player getLocalPlayer() {
         NodeContext context = nodeContext.get();
         return context != null ? context.getLocalPlayer() : null;
     }
 
-    /**
-     * Получает текущую роль узла
-     */
     public NodeRole getCurrentRole() {
         Node node = currentNode.get();
         return node != null ? node.getRole() : null;
     }
 
-    /**
-     * Переключает узел на новую роль (например, при повышении Deputy -> Master)
-     */
+    // ← ИСПРАВЛЕНО: Публичный метод для переключения узла
     public void switchNode(NodeRole newRole) {
         Node oldNode = currentNode.get();
         if (oldNode == null) {
@@ -249,9 +202,6 @@ public class GameService {
         Logger.info("Node switched successfully to {}", newRole);
     }
 
-    /**
-     * Выходит из игры
-     */
     public void leaveGame() {
         if (!active) {
             return;
@@ -261,7 +211,6 @@ public class GameService {
 
         Node node = currentNode.get();
         if (node != null) {
-            // Уведомляем мастера о выходе (отправляем RoleChange с sender_role = VIEWER)
             NodeContext context = nodeContext.get();
             if (context != null && context.getMasterAddress() != null) {
                 SnakesProto.GameMessage roleChange = MessageBuilder.createRoleChange(
@@ -289,9 +238,6 @@ public class GameService {
         Logger.info("Left game successfully");
     }
 
-    /**
-     * Останавливает игровую сессию
-     */
     public void shutdown() {
         leaveGame();
     }
@@ -304,9 +250,6 @@ public class GameService {
         return networkManager.get();
     }
 
-    /**
-     * Создает узел по роли
-     */
     private Node createNodeByRole(NodeContext context, NodeRole role) {
         return switch (role) {
             case MASTER -> new MasterNode(context);
