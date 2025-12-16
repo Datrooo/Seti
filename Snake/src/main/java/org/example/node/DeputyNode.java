@@ -1,5 +1,6 @@
 package org.example.node;
 
+import org.example.game.engine.GameEngine;
 import org.example.game.model.Direction;
 import org.example.game.model.GameState;
 import org.example.game.serialization.MessageBuilder;
@@ -106,6 +107,15 @@ public class DeputyNode extends Node {
 
         // Обновляем роль локального игрока
         context.getLocalPlayer().setRole(NodeRole.MASTER);
+
+        // ✅ ВАЖНО: Создаем GameEngine ДО остановки и передаем текущее состояние
+        if (context.getGameEngine() == null && context.getCurrentState() != null) {
+            Logger.info("Creating GameEngine with current state before promotion");
+            GameEngine gameEngine = new GameEngine(context.getGameConfig());
+            gameEngine.setGameState(context.getCurrentState());
+            context.setGameEngine(gameEngine);
+        }
+
         context.setMasterAddress(null);
 
         // Рассылаем ПЕРЕД остановкой scheduler!
@@ -114,12 +124,13 @@ public class DeputyNode extends Node {
         // Теперь останавливаем DeputyNode
         this.stop();
 
-        // Создаем MasterNode
+        // Создаем MasterNode (он использует существующий GameEngine)
         MasterNode masterNode = new MasterNode(context);
         masterNode.start();
 
         Logger.info("Successfully promoted to MASTER");
     }
+
 
     private void broadcastNewMaster() {
         NetworkManager network = context.getNetworkManager();

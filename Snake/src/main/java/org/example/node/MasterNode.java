@@ -1,10 +1,7 @@
 package org.example.node;
 
 import org.example.game.engine.GameEngine;
-import org.example.game.model.Direction;
-import org.example.game.model.GameConfig;
-import org.example.game.model.Player;
-import org.example.game.model.PlayerType;
+import org.example.game.model.*;
 import org.example.game.serialization.MessageBuilder;
 import org.example.game.serialization.StateSerializer;
 import org.example.network.NetworkManager;
@@ -25,7 +22,31 @@ public class MasterNode extends Node {
     public MasterNode(NodeContext context) {
         super(context, NodeRole.MASTER);
         this.scheduler = Executors.newScheduledThreadPool(3);
+
+        // Проверяем, есть ли уже GameEngine (при повышении Deputy)
+        if (context.getGameEngine() == null) {
+            // ✅ НОВЫЙ мастер - создаем новый GameEngine
+            Logger.info("Creating new GameEngine for new game");
+            this.gameEngine = new GameEngine(context.getGameConfig());
+            context.setGameEngine(gameEngine);
+
+            // Добавляем локального игрока
+            Snake snake = gameEngine.addPlayer(context.getLocalPlayer());
+            Logger.info("Master created with snake at {}", snake.getHead());
+        } else {
+            // ✅ ПОВЫШЕНИЕ Deputy→Master - используем существующий GameEngine
+            Logger.info("Using existing GameEngine from Deputy promotion");
+            this.gameEngine = context.getGameEngine();
+
+            // Восстанавливаем состояние из currentState если есть
+            if (context.getCurrentState() != null) {
+                Logger.info("Restoring game state: order={}",
+                        context.getCurrentState().getStateOrder());
+                gameEngine.setGameState(context.getCurrentState());
+            }
+        }
     }
+
 
     @Override
     protected void registerMessageHandlers() {
