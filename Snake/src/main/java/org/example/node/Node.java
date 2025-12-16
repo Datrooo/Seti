@@ -73,6 +73,7 @@ public abstract class Node {
      * Обрабатывает Ping сообщение
      */
     protected void handlePing(SnakesProto.GameMessage message, InetSocketAddress sender) {
+        Logger.debug("Received PING from {}", sender);
         context.getNetworkManager().updatePeerActivity(sender);
         context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
     }
