@@ -15,6 +15,10 @@ public class IdGenerator {
         return messageSeqCounter.getAndIncrement();
     }
 
+    public static void setNextPlayerId(int nextId) {
+        playerIdCounter.set(nextId);
+    }
+
     public static void resetPlayerIds() {
         playerIdCounter.set(1);
     }

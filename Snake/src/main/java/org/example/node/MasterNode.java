@@ -70,6 +70,13 @@ public class MasterNode extends Node {
         if (context.getGameEngine() == null) {
             // Только для НОВОЙ игры
             gameEngine = new GameEngine(context.getGameConfig());
+            int maxId = gameEngine.getGameState().getPlayers().stream()
+                    .mapToInt(Player::getId)
+                    .max()
+                    .orElse(0);
+            IdGenerator.setNextPlayerId(maxId + 1);
+            Logger.info("Synced playerIdCounter to {}", maxId + 1);
+
             context.setGameEngine(gameEngine);
 
             // Добавляем себя как игрока
@@ -300,7 +307,7 @@ public class MasterNode extends Node {
         }
 
         // Создаем нового игрока
-        int newPlayerId = IdGenerator.generatePlayerId();
+        int newPlayerId = allocateUniquePlayerId();
         NodeRole requestedRole = StateSerializer.nodeRoleFromProto(joinMsg.getRequestedRole());
         PlayerType playerType = joinMsg.hasPlayerType()
                 ? StateSerializer.playerTypeFromProto(joinMsg.getPlayerType())
@@ -396,5 +403,17 @@ public class MasterNode extends Node {
             }
         }
     }
+
+    private int allocateUniquePlayerId() {
+        int id;
+        while (true) {
+            id = IdGenerator.generatePlayerId();
+            boolean exists = gameEngine.getGameState().getPlayer(id).isPresent();
+            if (!exists && id != context.getLocalPlayer().getId()) {
+                return id;
+            }
+        }
+    }
+
 
 }
