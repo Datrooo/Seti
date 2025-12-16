@@ -97,6 +97,7 @@ public class GameService {
                 config
         );
         context.setMasterAddress(masterAddress);
+        network.registerPeer(masterAddress, 0);
 
         // ← ДОБАВЛЕНО: Устанавливаем listener для смены роли
         context.setNodeChangeListener(this::switchNode);
@@ -108,12 +109,13 @@ public class GameService {
         this.currentNode.set(node);
 
         SnakesProto.GameMessage joinMsg = MessageBuilder.createJoin(
+                tempPlayerId,
                 playerName,
                 announcement.getGameName(),
                 requestedRole
         );
+        network.sendWithAck(joinMsg, masterAddress);
 
-        network.send(joinMsg, masterAddress);
 
         Logger.info("Join request sent to master at {}", masterAddress);
 

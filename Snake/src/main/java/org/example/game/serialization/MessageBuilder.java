@@ -105,10 +105,11 @@ public class MessageBuilder {
      * Создает JoinMsg
      */
     public static SnakesProto.GameMessage createJoin(
+            int senderId,
             String playerName,
             String gameName,
-            NodeRole requestedRole) {
-
+            NodeRole requestedRole
+    ) {
         SnakesProto.GameMessage.JoinMsg joinMsg = SnakesProto.GameMessage.JoinMsg.newBuilder()
                 .setPlayerName(playerName)
                 .setGameName(gameName)
@@ -117,10 +118,12 @@ public class MessageBuilder {
                 .build();
 
         return SnakesProto.GameMessage.newBuilder()
-                .setMsgSeq(System.nanoTime()) // Используем nanoTime для уникальности
+                .setMsgSeq(IdGenerator.generateMessageSeq())
+                .setSenderId(senderId)
                 .setJoin(joinMsg)
                 .build();
     }
+
 
 
 

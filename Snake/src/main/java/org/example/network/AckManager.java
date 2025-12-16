@@ -48,9 +48,11 @@ public class AckManager {
     public void sendWithAck(SnakesProto.GameMessage message, InetSocketAddress destination) {
         PeerInfo peer = peers.get(destination);
         if (peer == null) {
-            Logger.warn("Trying to send to unregistered peer: {}", destination);
-            return;
+            Logger.warn("Trying to send to unregistered peer: {}, auto-registering", destination);
+            registerPeer(destination, 0);
+            peer = peers.get(destination);
         }
+
 
         byte[] data = message.toByteArray();
         long msgSeq = message.getMsgSeq();
