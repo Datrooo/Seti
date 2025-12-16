@@ -126,11 +126,32 @@ public class MasterNode extends Node {
         scheduler.scheduleAtFixedRate(() -> {
             try {
                 gameEngine.update();
+
+                // ✅ ИСПРАВЛЕНО: Ищем змею через цикл
+                GameState newState = gameEngine.getGameState();
+
+                Snake mySnake = null;
+                for (Snake snake : newState.getSnakes()) {
+                    if (snake.getPlayerId() == context.getLocalPlayer().getId()) {
+                        mySnake = snake;
+                        break;
+                    }
+                }
+
+                Logger.debug("After update: order={}, mySnake alive={}",
+                        newState.getStateOrder(),
+                        mySnake != null ? mySnake.isAlive() : "NOT FOUND");
+
+                // ✅ КРИТИЧНО: Обновляем context.currentState для UI!
+                context.setCurrentState(newState);
+
             } catch (Exception e) {
                 Logger.error("Error in game loop: {}", e.getMessage(), e);
             }
         }, stateDelayMs, stateDelayMs, TimeUnit.MILLISECONDS);
     }
+
+
 
     /**
      * Рассылка состояния игры всем игрокам

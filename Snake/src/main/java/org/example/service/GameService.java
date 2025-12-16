@@ -155,12 +155,20 @@ public class GameService {
 
         // Для MASTER - берем из GameEngine
         if (context.getGameEngine() != null) {
-            return context.getGameEngine().getGameState();
+            GameState state = context.getGameEngine().getGameState();
+            Logger.debug("getGameState() MASTER: order={}, snakes={}",
+                    state.getStateOrder(), state.getSnakes().size());
+            return state;
         }
 
         // Для NORMAL/DEPUTY - берем из context
-        return context.getCurrentState();
+        GameState state = context.getCurrentState();
+        Logger.debug("getGameState() CLIENT: order={}, snakes={}",
+                state != null ? state.getStateOrder() : -1,
+                state != null ? state.getSnakes().size() : 0);
+        return state;
     }
+
 
     public GameConfig getGameConfig() {
         NodeContext context = nodeContext.get();
