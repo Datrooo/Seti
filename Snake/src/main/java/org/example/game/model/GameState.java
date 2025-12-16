@@ -48,11 +48,6 @@ public class GameState {
     }
 
 
-
-    public void incrementStateOrder() {
-        stateOrder++;
-    }
-
     public void addPlayer(Player player) {
         players.put(player.getId(), player);
     }
@@ -76,6 +71,7 @@ public class GameState {
     public void removeFood(Coord coord) {
         foods.remove(coord);
     }
+
 
     public boolean isCellOccupied(Coord coord) {
         // Проверяем, занята ли клетка телом змейки
@@ -132,6 +128,25 @@ public class GameState {
     public void setStateOrder(int order) {
         this.stateOrder = order;
     }
+
+
+    public void incrementStateOrder() {
+        this.stateOrder++;
+    }
+
+
+
+    // В GameState.java добавьте:
+
+    public void removeSnake(Snake snake) {
+        snakes.remove(snake.getPlayerId());
+    }
+
+    public Player getPlayerById(int playerId) {
+        return players.get(playerId);
+    }
+
+
 
     // В GameState.java
     public Snake getSnakeByPlayerId(int playerId) {

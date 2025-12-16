@@ -51,10 +51,6 @@ public class Snake {
         return new ArrayList<>(body);
     }
 
-    // ✅ ДОБАВЛЕНО: Доступ к внутреннему списку для модификации
-    public List<Coord> getBodyInternal() {
-        return body;
-    }
 
     public int getLength() {
         return body.size();
@@ -117,19 +113,41 @@ public class Snake {
         return state == SnakeState.ALIVE;
     }
 
-    public boolean isZombie() {
-        return state == SnakeState.ZOMBIE;
-    }
-
     // ✅ ДОБАВЛЕНО: Setter для alive через state
     public void setAlive(boolean alive) {
         this.state = alive ? SnakeState.ALIVE : SnakeState.ZOMBIE;
     }
+    // Добавить в класс Snake:
 
-    // ✅ ДОБАВЛЕНО: Setter для state
+    public Direction getPendingDirection() {
+        return pendingDirection;
+    }
+    // добавьте в Snake.java
+    public Direction getDirectionForNextMove() {
+        return (pendingDirection != null) ? pendingDirection : headDirection;
+    }
+
+
+    public void setPendingDirection(Direction direction) {
+        this.pendingDirection = direction;
+    }
+
+    public void setHeadDirection(Direction direction) {
+        this.headDirection = direction;
+    }
+
+    public List<Coord> getBodyInternal() {
+        return body; // Возвращаем реальный список, не копию
+    }
+
+    public boolean isZombie() {
+        return state == SnakeState.ZOMBIE;
+    }
+
     public void setState(SnakeState state) {
         this.state = state;
     }
+
 
     public int getPlayerId() {
         return playerId;

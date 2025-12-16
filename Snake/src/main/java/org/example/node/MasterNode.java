@@ -235,7 +235,7 @@ public class MasterNode extends Node {
         // ✅ КРИТИЧНО: Делаем змею зомби ПЕРЕД удалением игрока!
         Snake snake = gameEngine.getGameState().getSnakeByPlayerId(peer.getPlayerId());
         if (snake != null && snake.isAlive()) {
-            snake.setAlive(false);
+            snake.setState(Snake.SnakeState.ZOMBIE);
             Logger.info("Player {} left, snake became zombie", peer.getPlayerId());
         }
 
