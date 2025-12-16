@@ -1,40 +1,59 @@
 package org.example.network;
 
+import org.example.util.Logger;
+
 import java.net.InetSocketAddress;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class PeerInfo {
     private final InetSocketAddress address;
     private final int playerId;
-    private long lastActivityTime;
+    private long lastActivityTime; // Время последней активности
     private final ConcurrentHashMap<Long, PendingMessage> pendingMessages;
 
     public PeerInfo(InetSocketAddress address, int playerId) {
         this.address = address;
         this.playerId = playerId;
-        this.lastActivityTime = System.currentTimeMillis();
+        this.lastActivityTime = System.currentTimeMillis(); // ← ВАЖНО! Устанавливаем сразу
         this.pendingMessages = new ConcurrentHashMap<>();
     }
 
+    /**
+     * Обновляет время последней активности
+     */
     public void updateActivity() {
+        long oldTime = this.lastActivityTime;
         this.lastActivityTime = System.currentTimeMillis();
+        Logger.debug("Peer {} activity updated: {} -> {}", address, oldTime, lastActivityTime);
     }
 
+
+    /**
+     * Проверяет, истёк ли таймаут
+     */
     public boolean isTimedOut(int timeoutMs) {
-        return System.currentTimeMillis() - lastActivityTime > timeoutMs;
+        long elapsed = System.currentTimeMillis() - lastActivityTime;
+        boolean timedOut = elapsed > timeoutMs;
+        if (timedOut) {
+            Logger.warn("Peer {} timeout check: elapsed={}ms, limit={}ms",
+                    address, elapsed, timeoutMs);
+        }
+        return timedOut;
     }
 
-    public void addPendingMessage(long msgSeq, byte[] messageData) {
-        pendingMessages.put(msgSeq, new PendingMessage(messageData));
+
+    /**
+     * Добавляет сообщение в очередь ожидания ACK
+     */
+    public void addPendingMessage(long msgSeq, byte[] data) {
+        pendingMessages.put(msgSeq, new PendingMessage(data));
     }
 
+    /**
+     * Удаляет сообщение из очереди (когда пришёл ACK)
+     */
     public void removePendingMessage(long msgSeq) {
         pendingMessages.remove(msgSeq);
-    }
-
-    public PendingMessage getPendingMessage(long msgSeq) {
-        return pendingMessages.get(msgSeq);
     }
 
     public ConcurrentHashMap<Long, PendingMessage> getPendingMessages() {
@@ -53,36 +72,38 @@ public class PeerInfo {
         return lastActivityTime;
     }
 
+    /**
+     * Сообщение, ожидающее подтверждения
+     */
     public static class PendingMessage {
         private final byte[] data;
-        private final long sendTime;
+        private final long sentTime;
         private int retryCount;
 
         public PendingMessage(byte[] data) {
             this.data = data;
-            this.sendTime = System.currentTimeMillis();
+            this.sentTime = System.currentTimeMillis();
             this.retryCount = 0;
         }
 
-        public byte[] getData() {
-            return data;
-        }
-
-        public long getSendTime() {
-            return sendTime;
-        }
-
-        public int getRetryCount() {
-            return retryCount;
+        public boolean shouldRetry(int timeoutMs, int maxRetries) {
+            if (retryCount >= maxRetries) {
+                return false;
+            }
+            long elapsed = System.currentTimeMillis() - sentTime - (retryCount * timeoutMs);
+            return elapsed > timeoutMs;
         }
 
         public void incrementRetry() {
             retryCount++;
         }
 
-        public boolean shouldRetry(int ackTimeoutMs, int maxRetries) {
-            return retryCount < maxRetries &&
-                    System.currentTimeMillis() - sendTime > (long) ackTimeoutMs * (retryCount + 1);
+        public byte[] getData() {
+            return data;
+        }
+
+        public int getRetryCount() {
+            return retryCount;
         }
     }
 }

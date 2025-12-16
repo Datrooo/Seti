@@ -156,6 +156,33 @@ public class MulticastDiscovery {
     }
 
     /**
+     * Отправляет announcement в multicast группу
+     */
+    public void sendAnnouncement(SnakesProto.GameMessage announcement) {
+        if (socket == null || socket.isClosed()) {
+            Logger.warn("Multicast socket not available, cannot send announcement");
+            return;
+        }
+
+        try {
+            byte[] data = announcement.toByteArray();
+            DatagramPacket packet = new DatagramPacket(
+                    data,
+                    data.length,
+                    group,
+                    multicastPort
+            );
+
+            socket.send(packet);
+            Logger.debug("Sent multicast announcement");
+
+        } catch (IOException e) {
+            Logger.error("Error sending multicast announcement: {}", e.getMessage());
+        }
+    }
+
+
+    /**
      * Класс для передачи announcement с адресом отправителя
      */
     public record AnnouncementWithAddress(

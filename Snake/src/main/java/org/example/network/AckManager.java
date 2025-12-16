@@ -30,6 +30,7 @@ public class AckManager {
      */
     public void registerPeer(InetSocketAddress address, int playerId) {
         peers.putIfAbsent(address, new PeerInfo(address, playerId));
+
         Logger.debug("Registered peer: {} with id {}", address, playerId);
     }
 

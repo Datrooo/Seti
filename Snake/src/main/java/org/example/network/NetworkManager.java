@@ -114,10 +114,12 @@ public class NetworkManager {
     }
 
     /**
-     * Регистрирует peer для отслеживания
+     * Регистрирует peer
      */
     public void registerPeer(InetSocketAddress address, int playerId) {
         ackManager.registerPeer(address, playerId);
+        // Сразу обновляем активность
+        ackManager.updatePeerActivity(address);
     }
 
     /**
@@ -135,18 +137,12 @@ public class NetworkManager {
     }
 
     /**
-     * Отправляет multicast announcement
-     */
-    public void announceGame(SnakesProto.GameMessage announcement) {
-        discovery.send(announcement); // ← было announce(), должно быть send()
-    }
-
-    /**
      * Проверяет таймауты peer'ов
      */
-    public void checkPeerTimeouts(int timeoutMs, java.util.function.Consumer<PeerInfo> onTimeout) {
+    public void checkPeerTimeouts(long timeoutMs, Consumer<PeerInfo> onTimeout) {
         ackManager.checkPeerTimeouts(timeoutMs, onTimeout);
     }
+
 
     // Делегирование методов диспетчера
 
@@ -172,5 +168,24 @@ public class NetworkManager {
     public void addAnnouncementListener(Consumer<MulticastDiscovery.AnnouncementWithAddress> listener) {
         discovery.addAnnouncementListener(listener);
     }
+
+    /**
+     * Получает MulticastDiscovery
+     */
+    public MulticastDiscovery getMulticastDiscovery() {
+        return discovery;
+    }
+
+    /**
+     * Отправляет multicast announcement об игре
+     */
+    public void announceGame(SnakesProto.GameMessage announcement) {
+        if (discovery != null) {
+            discovery.sendAnnouncement(announcement);
+        } else {
+            Logger.warn("MulticastDiscovery not initialized, cannot announce game");
+        }
+    }
+
 
 }
