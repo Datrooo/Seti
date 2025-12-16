@@ -12,15 +12,18 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class DeputyNode extends Node {
     private final ScheduledExecutorService scheduler;
     private volatile Direction pendingDirection;
+    private final AtomicLong lastMasterActivity;
 
     public DeputyNode(NodeContext context) {
         super(context, NodeRole.DEPUTY);
         this.scheduler = Executors.newScheduledThreadPool(2);
         this.pendingDirection = null;
+        this.lastMasterActivity = new AtomicLong(System.currentTimeMillis());
     }
 
     @Override
@@ -91,21 +94,17 @@ public class DeputyNode extends Node {
      * Проверка таймаута мастера через NetworkManager
      */
     private void checkMasterTimeout() {
-        InetSocketAddress masterAddr = context.getMasterAddress();
-        if (masterAddr == null) {
-            return;
-        }
-
-        NetworkManager network = context.getNetworkManager();
+        long now = System.currentTimeMillis();
+        long lastActivity = lastMasterActivity.get();
+        long elapsed = now - lastActivity;
         int timeoutMs = context.getGameConfig().nodeTimeoutMs();
 
-        // Проверяем таймаут мастера
-        network.checkPeerTimeouts(timeoutMs, peerInfo -> {
-            if (peerInfo.getAddress().equals(masterAddr)) {
-                Logger.warn("Master {} timed out, promoting to MASTER", masterAddr);
-                promoteToMaster();
-            }
-        });
+        Logger.debug("Master timeout check: elapsed={}ms, limit={}ms", elapsed, timeoutMs);
+
+        if (elapsed > timeoutMs) {
+            Logger.warn("Master timed out! Elapsed: {}ms, promoting to MASTER", elapsed);
+            promoteToMaster();
+        }
     }
 
     /**
@@ -185,6 +184,7 @@ public class DeputyNode extends Node {
         if (!message.hasState()) {
             return;
         }
+        lastMasterActivity.set(System.currentTimeMillis());
 
         // Обновляем состояние игры
         GameState newState = StateSerializer.fromProto(
