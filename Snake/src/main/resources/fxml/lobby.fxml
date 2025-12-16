@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/17"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="org.example.controller.LobbyController">
+
+    <!-- Верхняя панель -->
+    <top>
+        <VBox spacing="10" styleClass="info-panel">
+            <padding>
+                <Insets top="15" right="15" bottom="15" left="15"/>
+            </padding>
+            <Label text="Available Games" styleClass="dialog-title"/>
+            <Label text="Select a game to join or wait for new games to appear"/>
+        </VBox>
+    </top>
+
+    <!-- Центральная часть - таблица игр -->
+    <center>
+        <TableView fx:id="gamesTable" styleClass="player-table">
+            <columns>
+                <TableColumn fx:id="nameColumn" text="Game Name" prefWidth="250"/>
+                <TableColumn fx:id="sizeColumn" text="Field Size" prefWidth="100"/>
+                <TableColumn fx:id="playersColumn" text="Players" prefWidth="80"/>
+                <TableColumn fx:id="statusColumn" text="Status" prefWidth="100"/>
+            </columns>
+        </TableView>
+    </center>
+
+    <!-- Нижняя панель - параметры присоединения -->
+    <bottom>
+        <VBox spacing="15">
+            <padding>
+                <Insets top="15" right="15" bottom="15" left="15"/>
+            </padding>
+
+            <Separator/>
+
+            <HBox spacing="15" alignment="CENTER_LEFT">
+                <Label text="Your Name:"/>
+                <TextField fx:id="playerNameField" promptText="Enter your name" prefWidth="200"/>
+
+                <Label text="Mode:"/>
+                <RadioButton fx:id="playRadio" text="Play"/>
+                <RadioButton fx:id="spectateRadio" text="Spectate"/>
+            </HBox>
+
+            <HBox spacing="10" alignment="CENTER_RIGHT">
+                <Button fx:id="joinButton" text="Join Selected Game"
+                        onAction="#onJoin" styleClass="primary-button"/>
+                <Button fx:id="backButton" text="Back to Menu" onAction="#onBack"/>
+            </HBox>
+        </VBox>
+    </bottom>
+</BorderPane>

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox spacing="15" xmlns="http://javafx.com/javafx/17"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="org.example.controller.CreateGameController">
+
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+
+    <Label text="Create New Game" styleClass="dialog-title"/>
+
+    <Separator/>
+
+    <GridPane hgap="10" vgap="15">
+        <!-- Game Name -->
+        <Label text="Game Name:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+        <TextField fx:id="gameNameField" promptText="My Awesome Game"
+                   GridPane.columnIndex="1" GridPane.rowIndex="0" prefWidth="200"/>
+
+        <!-- Player Name -->
+        <Label text="Your Name:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+        <TextField fx:id="playerNameField" promptText="Player"
+                   GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+
+        <!-- Field Size -->
+        <Label text="Field Width:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+        <Spinner fx:id="widthSpinner" GridPane.columnIndex="1" GridPane.rowIndex="2"
+                 prefWidth="200" editable="true"/>
+
+        <Label text="Field Height:" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
+        <Spinner fx:id="heightSpinner" GridPane.columnIndex="1" GridPane.rowIndex="3"
+                 prefWidth="200" editable="true"/>
+
+        <!-- Food -->
+        <Label text="Food Static:" GridPane.columnIndex="0" GridPane.rowIndex="4"/>
+        <Spinner fx:id="foodStaticSpinner" GridPane.columnIndex="1" GridPane.rowIndex="4"
+                 prefWidth="200" editable="true"/>
+
+        <!-- State Delay -->
+        <Label text="State Delay (ms):" GridPane.columnIndex="0" GridPane.rowIndex="5"/>
+        <Spinner fx:id="stateDelaySpinner" GridPane.columnIndex="1" GridPane.rowIndex="5"
+                 prefWidth="200" editable="true"/>
+    </GridPane>
+
+    <Separator/>
+
+    <HBox spacing="10" alignment="CENTER_RIGHT">
+        <Button text="Create" onAction="#onCreate" styleClass="primary-button"/>
+        <Button text="Cancel" onAction="#onCancel"/>
+    </HBox>
+</VBox>

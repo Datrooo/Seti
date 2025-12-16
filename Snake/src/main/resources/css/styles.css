@@ -1,0 +1,113 @@
+/* Общие стили */
+.root {
+    -fx-font-family: "Arial";
+    -fx-font-size: 14px;
+}
+
+/* Главное меню */
+.main-menu {
+    -fx-background-color: linear-gradient(to bottom, #2c3e50, #34495e);
+}
+
+.title {
+    -fx-font-size: 48px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #ecf0f1;
+}
+
+.subtitle {
+    -fx-font-size: 18px;
+    -fx-text-fill: #bdc3c7;
+}
+
+/* Кнопки */
+.menu-button {
+    -fx-background-color: #3498db;
+    -fx-text-fill: white;
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-padding: 15px 30px;
+    -fx-background-radius: 5px;
+    -fx-cursor: hand;
+}
+
+.menu-button:hover {
+    -fx-background-color: #2980b9;
+}
+
+.menu-button:pressed {
+    -fx-background-color: #21618c;
+}
+
+.primary-button {
+    -fx-background-color: #27ae60;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-padding: 10px 20px;
+    -fx-background-radius: 5px;
+}
+
+.primary-button:hover {
+    -fx-background-color: #229954;
+}
+
+/* Диалоги */
+.dialog-title {
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+}
+
+/* Игровое поле */
+.game-canvas {
+    -fx-border-color: #2c3e50;
+    -fx-border-width: 2px;
+}
+
+/* Таблица игроков */
+.player-table {
+    -fx-background-color: #ecf0f1;
+}
+
+/* Информационная панель */
+.info-panel {
+    -fx-background-color: #34495e;
+    -fx-text-fill: white;
+    -fx-padding: 10px;
+}
+
+.info-label {
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+}
+/* ... предыдущие стили ... */
+
+/* Кнопка выхода */
+.exit-button {
+    -fx-background-color: #e74c3c;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-padding: 10px 20px;
+    -fx-background-radius: 5px;
+}
+
+.exit-button:hover {
+    -fx-background-color: #c0392b;
+}
+
+.exit-button:pressed {
+    -fx-background-color: #a93226;
+}
+
+/* Стили для диалоговых окон */
+.dialog-pane {
+    -fx-background-color: #ecf0f1;
+}
+
+.dialog-pane .header-panel {
+    -fx-background-color: #34495e;
+}
+
+.dialog-pane .header-panel .label {
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}

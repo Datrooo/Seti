@@ -1,0 +1,144 @@
+package org.example.network;
+
+import org.example.util.Logger;
+
+import java.io.IOException;
+import java.net.*;
+import java.nio.ByteBuffer;
+import java.nio.channels.DatagramChannel;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.util.Iterator;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+
+public class UdpTransport {
+    private final int port;
+    private DatagramChannel channel;
+    private Selector selector;
+    private final BlockingQueue<ReceivedPacket> receivedPackets;
+    private volatile boolean running;
+
+    public UdpTransport(int port) {
+        this.port = port;
+        this.receivedPackets = new LinkedBlockingQueue<>();
+        this.running = false;
+    }
+
+    /**
+     * Инициализирует UDP сокет
+     */
+    public void start() throws IOException {
+        channel = DatagramChannel.open();
+        channel.configureBlocking(false);
+        channel.socket().bind(new InetSocketAddress(port));
+
+        selector = Selector.open();
+        channel.register(selector, SelectionKey.OP_READ);
+
+        running = true;
+
+        Logger.info("UDP Transport started on port {}", port);
+    }
+
+    /**
+     * Отправляет данные на указанный адрес
+     */
+    public void send(byte[] data, InetSocketAddress destination) {
+        try {
+            ByteBuffer buffer = ByteBuffer.wrap(data);
+            channel.send(buffer, destination);
+            Logger.debug("Sent {} bytes to {}", data.length, destination);
+        } catch (IOException e) {
+            Logger.error("Failed to send packet to {}: {}", destination, e.getMessage());
+        }
+    }
+
+    /**
+     * Получает пакет (неблокирующий)
+     */
+    public ReceivedPacket receive() throws InterruptedException {
+        return receivedPackets.take();
+    }
+
+    /**
+     * Попытка получить пакет с таймаутом (в миллисекундах)
+     */
+    public ReceivedPacket receiveWithTimeout(long timeoutMs) throws InterruptedException {
+        return receivedPackets.poll(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * Получение пакетов из сокета (вызывать в отдельном потоке)
+     */
+    public void receiveLoop() {
+        ByteBuffer buffer = ByteBuffer.allocate(65536);
+
+        while (running) {
+            try {
+                int ready = selector.select(100); // Таймаут 100ms
+
+                if (ready == 0) {
+                    continue;
+                }
+
+                Iterator<SelectionKey> keyIterator = selector.selectedKeys().iterator();
+
+                while (keyIterator.hasNext()) {
+                    SelectionKey key = keyIterator.next();
+                    keyIterator.remove();
+
+                    if (key.isReadable()) {
+                        buffer.clear();
+                        InetSocketAddress sender = (InetSocketAddress) channel.receive(buffer);
+
+                        if (sender != null) {
+                            buffer.flip();
+                            byte[] data = new byte[buffer.remaining()];
+                            buffer.get(data);
+
+                            receivedPackets.offer(new ReceivedPacket(data, sender));
+                            Logger.debug("Received {} bytes from {}", data.length, sender);
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                if (running) {
+                    Logger.error("Error in receive loop: {}", e.getMessage());
+                }
+            }
+        }
+    }
+
+    /**
+     * Останавливает транспорт
+     */
+    public void stop() {
+        running = false;
+
+        try {
+            if (selector != null) {
+                selector.close();
+            }
+            if (channel != null) {
+                channel.close();
+            }
+            Logger.info("UDP Transport stopped");
+        } catch (IOException e) {
+            Logger.error("Error stopping UDP transport: {}", e.getMessage());
+        }
+    }
+
+    public boolean isRunning() {
+        return running;
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    /**
+     * Класс для хранения полученного пакета с адресом отправителя
+     */
+    public record ReceivedPacket(byte[] data, InetSocketAddress sender) {}
+}

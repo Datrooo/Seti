@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.canvas.Canvas?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane fx:id="root" xmlns="http://javafx.com/javafx/17"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="org.example.controller.GameController">
+
+    <!-- Верхняя панель - информация -->
+    <top>
+        <VBox styleClass="info-panel">
+            <padding>
+                <Insets top="10" right="10" bottom="10" left="10"/>
+            </padding>
+            <Label fx:id="gameInfoLabel" styleClass="info-label"/>
+            <Label fx:id="statusLabel" styleClass="info-label"/>
+        </VBox>
+    </top>
+
+    <!-- Центр - игровое поле -->
+    <center>
+        <StackPane>
+            <Canvas fx:id="gameCanvas" width="800" height="600" styleClass="game-canvas"/>
+        </StackPane>
+    </center>
+
+    <!-- Правая панель - таблица игроков -->
+    <right>
+        <VBox spacing="10" prefWidth="250">
+            <padding>
+                <Insets top="10" right="10" bottom="10" left="10"/>
+            </padding>
+
+            <Label text="Players" style="-fx-font-weight: bold; -fx-font-size: 16px;"/>
+
+            <TableView fx:id="playersTable" VBox.vgrow="ALWAYS">
+                <columns>
+                    <TableColumn fx:id="playerNameColumn" text="Name" prefWidth="120"/>
+                    <TableColumn fx:id="scoreColumn" text="Score" prefWidth="60"/>
+                    <TableColumn fx:id="roleColumn" text="Role" prefWidth="60"/>
+                </columns>
+            </TableView>
+
+            <Separator/>
+
+            <Label text="Controls:" style="-fx-font-weight: bold;"/>
+            <Label text="WASD or Arrow Keys" wrapText="true"/>
+            <Label text="ESC - Pause Menu" wrapText="true"/>
+
+            <Region VBox.vgrow="ALWAYS"/> <!-- Spacer -->
+
+            <Button fx:id="exitButton" text="Exit to Menu" onAction="#onExitToMenu"
+                    prefWidth="200" styleClass="exit-button"/>
+        </VBox>
+    </right>
+</BorderPane>

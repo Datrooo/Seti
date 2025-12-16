@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox alignment="CENTER" spacing="20" xmlns="http://javafx.com/javafx/17"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="org.example.controller.MainMenuController"
+      styleClass="main-menu">
+
+    <padding>
+        <Insets top="50" right="50" bottom="50" left="50"/>
+    </padding>
+
+    <Label text="SNAKE GAME" styleClass="title"/>
+    <Label text="Multiplayer Edition" styleClass="subtitle"/>
+
+    <VBox spacing="15" alignment="CENTER">
+        <Button fx:id="createButton" text="Create Game" onAction="#onCreateGame"
+                prefWidth="200" styleClass="menu-button"/>
+        <Button fx:id="joinButton" text="Join Game" onAction="#onJoinGame"
+                prefWidth="200" styleClass="menu-button"/>
+        <Button text="Exit" onAction="#onExit"
+                prefWidth="200" styleClass="menu-button"/>
+    </VBox>
+</VBox>
