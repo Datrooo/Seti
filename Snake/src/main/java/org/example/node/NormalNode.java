@@ -130,8 +130,15 @@ public class NormalNode extends Node {
         SnakesProto.GameMessage.RoleChangeMsg roleChange = message.getRoleChange();
 
         // Проверяем, это нам адресовано
-        if (message.hasReceiverId() &&
-                message.getReceiverId() == context.getLocalPlayer().getId()) {
+        if (message.hasReceiverId()) {
+            int receiverId = message.getReceiverId();
+
+            // Обновляем свой ID, если он был временным
+            if (context.getLocalPlayer().getId() != receiverId) {
+                Logger.info("Updating player ID from {} to {}",
+                        context.getLocalPlayer().getId(), receiverId);
+                context.getLocalPlayer().setId(receiverId);
+            }
 
             if (roleChange.hasReceiverRole()) {
                 NodeRole newRole = StateSerializer.nodeRoleFromProto(roleChange.getReceiverRole());
@@ -148,7 +155,9 @@ public class NormalNode extends Node {
 
         // Отправляем ACK
         context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
+        context.getNetworkManager().updatePeerActivity(sender);
     }
+
 
     /**
      * Периодическая отправка Ping мастеру

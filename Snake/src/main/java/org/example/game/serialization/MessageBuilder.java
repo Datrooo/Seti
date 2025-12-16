@@ -8,8 +8,10 @@ import org.example.protocol.SnakesProto;
 import org.example.util.IdGenerator;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class MessageBuilder {
+    private static final AtomicLong msgSeqGenerator = new AtomicLong(0);
 
     /**
      * Создает PingMsg
@@ -23,6 +25,11 @@ public class MessageBuilder {
                 .build();
     }
 
+
+    private static long generateMsgSeq() {
+        return msgSeqGenerator.incrementAndGet();
+    }
+    
     /**
      * Создает SteerMsg
      */
@@ -102,22 +109,19 @@ public class MessageBuilder {
             String gameName,
             NodeRole requestedRole) {
 
-        SnakesProto.NodeRole protoRole = switch (requestedRole) {
-            case NORMAL -> SnakesProto.NodeRole.NORMAL;
-            case VIEWER -> SnakesProto.NodeRole.VIEWER;
-            default -> throw new IllegalArgumentException("Can only request NORMAL or VIEWER role");
-        };
+        SnakesProto.GameMessage.JoinMsg joinMsg = SnakesProto.GameMessage.JoinMsg.newBuilder()
+                .setPlayerName(playerName)
+                .setGameName(gameName)
+                .setRequestedRole(StateSerializer.nodeRoleToProto(requestedRole))
+                .setPlayerType(SnakesProto.PlayerType.HUMAN)
+                .build();
 
         return SnakesProto.GameMessage.newBuilder()
-                .setMsgSeq(IdGenerator.generateMessageSeq())
-                .setJoin(SnakesProto.GameMessage.JoinMsg.newBuilder()
-                        .setPlayerName(playerName)
-                        .setGameName(gameName)
-                        .setRequestedRole(protoRole)
-                        .setPlayerType(SnakesProto.PlayerType.HUMAN)
-                        .build())
-                .build();
+                .setMsgSeq(generateMsgSeq())
+                .setJoin(joinMsg)
+                .build(); // Не указываем senderId, т.к. ID еще не назначен
     }
+
 
     /**
      * Создает ErrorMsg

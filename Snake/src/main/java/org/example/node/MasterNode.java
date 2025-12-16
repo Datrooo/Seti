@@ -201,6 +201,8 @@ public class MasterNode extends Node {
 
         SnakesProto.GameMessage.JoinMsg joinMsg = message.getJoin();
 
+        Logger.info("Received JOIN request from {} (player: {})", sender, joinMsg.getPlayerName());
+
         // Проверяем, можно ли присоединиться
         if (gameEngine.getGameState().getPlayerCount() >= 10) {
             sendError("Game is full", sender);
@@ -222,27 +224,35 @@ public class MasterNode extends Node {
                 playerType
         );
 
-        // Добавляем в игру
-        gameEngine.addPlayer(newPlayer);
+        // Регистрируем peer ПЕРЕД добавлением в игру
         context.getNetworkManager().registerPeer(sender, newPlayerId);
 
-        Logger.info("Player {} joined the game as {}", joinMsg.getPlayerName(), requestedRole);
+        // Добавляем в игру
+        gameEngine.addPlayer(newPlayer);
 
-        // Отправляем ACK
+        Logger.info("Player {} joined the game as {} with ID {}",
+                joinMsg.getPlayerName(), requestedRole, newPlayerId);
+
+        // Отправляем ACK на JoinMsg
         context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
 
-        // Отправляем RoleChangeMsg с назначенной ролью
+        // Отправляем RoleChangeMsg с назначенным ID и ролью
         SnakesProto.GameMessage roleChange = MessageBuilder.createRoleChange(
-                context.getLocalPlayer().getId(),
-                newPlayerId,
-                null,
-                requestedRole
+                context.getLocalPlayer().getId(), // senderId - мастер
+                newPlayerId,                       // receiverId - новый игрок
+                null,                              // senderRole не меняется
+                requestedRole                      // receiverRole - назначенная роль
         );
         context.getNetworkManager().sendWithAck(roleChange, sender);
 
+        Logger.info("Sent role assignment to {}: role={}, id={}", sender, requestedRole, newPlayerId);
+
         // Выбираем нового Deputy если нужно
-        selectDeputy();
+        if (context.getDeputyAddress() == null) {
+            selectDeputy();
+        }
     }
+
 
     /**
      * Обработка Discover сообщения

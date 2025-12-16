@@ -5,7 +5,7 @@ import org.example.node.NodeRole;
 import java.net.InetSocketAddress;
 
 public class Player {
-    private final int id;
+    private int id;
     private final String name;
     private final InetSocketAddress address;
     private NodeRole role;
@@ -75,5 +75,9 @@ public class Player {
     @Override
     public String toString() {
         return String.format("%s [%s] - %d pts", name, role, score);
+    }
+
+    public void setId(int id) {
+        this.id = id;
     }
 }

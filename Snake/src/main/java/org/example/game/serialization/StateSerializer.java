@@ -247,7 +247,7 @@ public class StateSerializer {
         };
     }
 
-    private static SnakesProto.NodeRole nodeRoleToProto(NodeRole role) {
+    public static SnakesProto.NodeRole nodeRoleToProto(NodeRole role) {
         return switch (role) {
             case MASTER -> SnakesProto.NodeRole.MASTER;
             case DEPUTY -> SnakesProto.NodeRole.DEPUTY;

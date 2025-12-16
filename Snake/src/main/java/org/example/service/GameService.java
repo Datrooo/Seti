@@ -74,6 +74,9 @@ public class GameService {
     /**
      * Присоединяется к существующей игре
      */
+    /**
+     * Присоединяется к существующей игре
+     */
     public void joinGame(
             SnakesProto.GameAnnouncement announcement,
             String playerName,
@@ -116,6 +119,9 @@ public class GameService {
         context.setMasterAddress(masterAddress);
         this.nodeContext.set(context);
 
+        // ВАЖНО: Сначала регистрируем мастера как peer
+        network.registerPeer(masterAddress, 0); // ID мастера пока неизвестен
+
         // Отправляем JoinMsg
         SnakesProto.GameMessage joinMsg = MessageBuilder.createJoin(
                 playerName,
@@ -123,6 +129,8 @@ public class GameService {
                 requestedRole
         );
         network.sendWithAck(joinMsg, masterAddress);
+
+        Logger.info("Join request sent to master at {}", masterAddress);
 
         // Создаем узел в зависимости от роли
         Node node = createNodeByRole(context, requestedRole);
@@ -132,6 +140,7 @@ public class GameService {
         active = true;
         Logger.info("Joined game successfully as {}", requestedRole);
     }
+
 
     /**
      * Отправляет команду управления змейкой
