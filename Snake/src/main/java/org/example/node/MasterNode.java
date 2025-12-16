@@ -168,9 +168,22 @@ public class MasterNode extends Node {
     }
 
     private void handlePlayerTimeout(PeerInfo peer) {
-        Logger.warn("Player {} timed out", peer.getPlayerId());
+        Logger.warn("Player {} timed out, removing", peer.getPlayerId());
         gameEngine.removePlayer(peer.getPlayerId());
         context.getNetworkManager().unregisterPeer(peer.getAddress());
+    }
+
+    /**
+     * Обработка Ping сообщения
+     */
+    protected void handlePing(SnakesProto.GameMessage message, InetSocketAddress sender) {
+        Logger.debug("Received PING from {}", sender);
+
+        // ВАЖНО: Обновляем активность отправителя
+        context.getNetworkManager().updatePeerActivity(sender);
+
+        // Отправляем ACK
+        context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
     }
 
     /**
@@ -274,8 +287,6 @@ public class MasterNode extends Node {
             selectDeputy();
         }
     }
-
-
 
     /**
      * Обработка Discover сообщения
