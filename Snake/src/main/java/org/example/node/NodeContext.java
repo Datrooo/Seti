@@ -2,6 +2,7 @@ package org.example.node;
 
 import org.example.game.engine.GameEngine;
 import org.example.game.model.GameConfig;
+import org.example.game.model.GameState;
 import org.example.game.model.Player;
 import org.example.network.NetworkManager;
 
@@ -19,6 +20,7 @@ public class NodeContext {
     private final AtomicReference<GameEngine> gameEngine;
     private final AtomicReference<InetSocketAddress> masterAddress;
     private final AtomicReference<InetSocketAddress> deputyAddress;
+    private volatile GameState currentState;
 
     public NodeContext(
             NetworkManager networkManager,
@@ -32,6 +34,15 @@ public class NodeContext {
         this.gameEngine = new AtomicReference<>(null);
         this.masterAddress = new AtomicReference<>(null);
         this.deputyAddress = new AtomicReference<>(null);
+    }
+
+
+    public GameState getCurrentState() {
+        return currentState;
+    }
+
+    public void setCurrentState(GameState state) {
+        this.currentState = state;
     }
 
     public NetworkManager getNetworkManager() {

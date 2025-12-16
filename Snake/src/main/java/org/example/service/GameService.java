@@ -184,11 +184,19 @@ public class GameService {
      */
     public GameState getGameState() {
         NodeContext context = nodeContext.get();
-        if (context == null || context.getGameEngine() == null) {
+        if (context == null) {
             return null;
         }
-        return context.getGameEngine().getGameState();
+
+        // Для MASTER - берем из GameEngine
+        if (context.getGameEngine() != null) {
+            return context.getGameEngine().getGameState();
+        }
+
+        // Для NORMAL/DEPUTY - берем из context
+        return context.getCurrentState();  // ← ДОБАВЬТЕ ЭТО!
     }
+
 
     /**
      * Получает конфигурацию игры

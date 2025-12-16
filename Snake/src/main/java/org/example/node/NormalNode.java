@@ -108,9 +108,13 @@ public class NormalNode extends Node {
                 context.getGameConfig()
         );
 
+        // ДЛЯ MASTER - обновляем GameEngine
         if (context.getGameEngine() != null) {
             context.getGameEngine().setGameState(newState);
         }
+
+        // ДЛЯ ВСЕХ - сохраняем в context
+        context.setCurrentState(newState);  // ← ДОБАВЬТЕ ЭТО!
 
         // Отправляем ACK
         context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
@@ -118,6 +122,7 @@ public class NormalNode extends Node {
 
         Logger.debug("Received state order={}", newState.getStateOrder());
     }
+
 
     /**
      * Обработка RoleChangeMsg
