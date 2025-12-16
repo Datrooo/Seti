@@ -6,8 +6,11 @@ import org.example.util.Config;
 import org.example.util.Logger;
 
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 public class AckManager {
     private final ConcurrentHashMap<InetSocketAddress, PeerInfo> peers;
@@ -122,16 +125,24 @@ public class AckManager {
     }
 
     /**
-     * Проверяет таймауты peer'ов
+     * Проверяет таймауты всех peer'ов
      */
-    public void checkPeerTimeouts(int timeoutMs, java.util.function.Consumer<PeerInfo> onTimeout) {
+    public void checkPeerTimeouts(long timeoutMs, Consumer<PeerInfo> onTimeout) {
+        List<PeerInfo> timedOutPeers = new ArrayList<>();
+
         for (PeerInfo peer : peers.values()) {
-            if (peer.isTimedOut(timeoutMs)) {
+            if (peer.isTimedOut((int) timeoutMs)) {
                 Logger.warn("Peer {} timed out", peer.getAddress());
-                onTimeout.accept(peer);
+                timedOutPeers.add(peer);
             }
         }
+
+        // Вызываем callback для каждого таймаутнувшего peer
+        for (PeerInfo peer : timedOutPeers) {
+            onTimeout.accept(peer);
+        }
     }
+
 
     /**
      * Обновляет время активности peer'а
@@ -139,7 +150,10 @@ public class AckManager {
     public void updatePeerActivity(InetSocketAddress address) {
         PeerInfo peer = peers.get(address);
         if (peer != null) {
-            peer.updateActivity();
+            peer.updateActivity(); // Обновляем timestamp
+            Logger.debug("Updated activity for peer {}", address);
+        } else {
+            Logger.warn("Trying to update activity for unknown peer: {}", address);
         }
     }
 

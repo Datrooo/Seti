@@ -7,22 +7,22 @@ import java.util.concurrent.atomic.AtomicLong;
 public class PeerInfo {
     private final InetSocketAddress address;
     private final int playerId;
-    private final AtomicLong lastActivityTime;
+    private long lastActivityTime;
     private final ConcurrentHashMap<Long, PendingMessage> pendingMessages;
 
     public PeerInfo(InetSocketAddress address, int playerId) {
         this.address = address;
         this.playerId = playerId;
-        this.lastActivityTime = new AtomicLong(System.currentTimeMillis());
+        this.lastActivityTime = System.currentTimeMillis();
         this.pendingMessages = new ConcurrentHashMap<>();
     }
 
     public void updateActivity() {
-        lastActivityTime.set(System.currentTimeMillis());
+        this.lastActivityTime = System.currentTimeMillis();
     }
 
     public boolean isTimedOut(int timeoutMs) {
-        return System.currentTimeMillis() - lastActivityTime.get() > timeoutMs;
+        return System.currentTimeMillis() - lastActivityTime > timeoutMs;
     }
 
     public void addPendingMessage(long msgSeq, byte[] messageData) {
@@ -50,7 +50,7 @@ public class PeerInfo {
     }
 
     public long getLastActivityTime() {
-        return lastActivityTime.get();
+        return lastActivityTime;
     }
 
     public static class PendingMessage {
@@ -82,7 +82,7 @@ public class PeerInfo {
 
         public boolean shouldRetry(int ackTimeoutMs, int maxRetries) {
             return retryCount < maxRetries &&
-                    System.currentTimeMillis() - sendTime > ackTimeoutMs * (retryCount + 1);
+                    System.currentTimeMillis() - sendTime > (long) ackTimeoutMs * (retryCount + 1);
         }
     }
 }
