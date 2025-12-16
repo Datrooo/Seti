@@ -45,11 +45,15 @@ public class DeputyNode extends Node {
 
     @Override
     protected void onStart() {
+        Logger.info("DeputyNode.onStart() called"); // ← ДОБАВЬТЕ!
+
         // Запускаем отправку Ping мастеру
         startPingTask();
+        Logger.info("Ping task started"); // ← ДОБАВЬТЕ!
 
         // Запускаем проверку таймаута мастера
         startMasterTimeoutChecker();
+        Logger.info("Master timeout checker started"); // ← ДОБАВЬТЕ!
 
         Logger.info("DeputyNode started, monitoring master at {}", context.getMasterAddress());
     }
@@ -81,13 +85,19 @@ public class DeputyNode extends Node {
     private void startMasterTimeoutChecker() {
         int timeoutMs = context.getGameConfig().nodeTimeoutMs();
 
+        Logger.info("startMasterTimeoutChecker: timeoutMs={}, interval={}ms",
+                timeoutMs, timeoutMs / 2); // ← ДОБАВЬТЕ!
+
         scheduler.scheduleAtFixedRate(() -> {
             try {
+                Logger.debug("Running checkMasterTimeout..."); // ← ДОБАВЬТЕ!
                 checkMasterTimeout();
             } catch (Exception e) {
                 Logger.error("Error checking master timeout: {}", e.getMessage(), e);
             }
         }, timeoutMs, timeoutMs / 2, TimeUnit.MILLISECONDS);
+
+        Logger.info("Scheduled master timeout checker"); // ← ДОБАВЬТЕ!
     }
 
     /**
@@ -113,22 +123,23 @@ public class DeputyNode extends Node {
     private void promoteToMaster() {
         Logger.info("Deputy promoting to MASTER");
 
-        // Останавливаем DeputyNode
-        this.stop();
-
         // Обновляем роль локального игрока
         context.getLocalPlayer().setRole(NodeRole.MASTER);
         context.setMasterAddress(null); // Мы теперь мастер
+
+        // Рассылаем ПЕРЕД остановкой scheduler!
+        broadcastNewMaster();
+
+        // Теперь останавливаем DeputyNode
+        this.stop();
 
         // Создаем MasterNode
         MasterNode masterNode = new MasterNode(context);
         masterNode.start();
 
         Logger.info("Successfully promoted to MASTER");
-
-        // Рассылаем всем игрокам RoleChange что мы теперь мастер
-        broadcastNewMaster();
     }
+
 
     /**
      * Рассылка уведомления о новом мастере всем игрокам
