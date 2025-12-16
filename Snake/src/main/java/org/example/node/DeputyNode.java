@@ -7,6 +7,7 @@ import org.example.game.model.Snake;
 import org.example.game.serialization.MessageBuilder;
 import org.example.game.serialization.StateSerializer;
 import org.example.network.NetworkManager;
+import org.example.network.PeerInfo;
 import org.example.protocol.SnakesProto;
 import org.example.util.Logger;
 
@@ -107,33 +108,47 @@ public class DeputyNode extends Node {
         Logger.info("Deputy promoting to MASTER");
 
         GameState currentState = context.getCurrentState();
-        if (currentState != null) {
-            Logger.info("Current state before promotion: order={}, players={}, snakes={}",
-                    currentState.getStateOrder(),
-                    currentState.getPlayerCount(),
-                    currentState.getSnakes().size());
-        }
 
-        // ✅ ОБНОВЛЯЕМ активность старого мастера, чтобы не удалить его сразу!
-        InetSocketAddress oldMaster = context.getMasterAddress();
-        if (oldMaster != null) {
-            context.getNetworkManager().updatePeerActivity(oldMaster);
-            Logger.info("Updated old master {} activity to prevent immediate timeout", oldMaster);
+        // ✅ Получаем старого мастера через поиск
+        InetSocketAddress oldMasterAddr = context.getMasterAddress();
+        Integer oldMasterId = null;
+
+        if (oldMasterAddr != null) {
+            // Ищем peer с этим адресом
+            for (PeerInfo peer : context.getNetworkManager().getAllPeers()) {
+                if (peer.getAddress().equals(oldMasterAddr)) {
+                    oldMasterId = peer.getPlayerId();
+                    Logger.info("Found old master: playerId={}, address={}", oldMasterId, oldMasterAddr);
+                    break;
+                }
+            }
+
+            // ✅ Удаляем мертвого мастера СРАЗУ
+            context.getNetworkManager().unregisterPeer(oldMasterAddr);
+            Logger.info("Removed dead master peer {}", oldMasterAddr);
         }
 
         context.getLocalPlayer().setRole(NodeRole.MASTER);
 
-        if (context.getGameEngine() == null && context.getCurrentState() != null) {
-            Logger.info("Creating GameEngine with current state before promotion");
+        if (context.getGameEngine() == null && currentState != null) {
+            Logger.info("Creating GameEngine with current state");
             GameEngine gameEngine = new GameEngine(context.getGameConfig());
-            gameEngine.setGameState(context.getCurrentState());
+            gameEngine.setGameState(currentState);
             context.setGameEngine(gameEngine);
+
+            // ✅ ДЕЛАЕМ змею старого мастера зомби
+            if (oldMasterId != null) {
+                Snake deadSnake = gameEngine.getGameState().getSnakeByPlayerId(oldMasterId);
+                if (deadSnake != null && deadSnake.isAlive()) {
+                    deadSnake.setAlive(false);
+                    Logger.info("Dead master {} snake became zombie", oldMasterId);
+                }
+            }
         }
 
         context.setMasterAddress(null);
 
-        // Рассылаем ПЕРЕД остановкой scheduler!
-        broadcastNewMaster();
+        broadcastNewMaster(); // Старого мастера уже нет в peers
 
         this.stop();
 
@@ -142,6 +157,7 @@ public class DeputyNode extends Node {
 
         Logger.info("Successfully promoted to MASTER");
     }
+
 
 
 
