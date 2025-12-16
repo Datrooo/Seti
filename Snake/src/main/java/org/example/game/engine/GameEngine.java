@@ -48,7 +48,7 @@ public class GameEngine {
         foodSpawner.spawnFood(gameState);
 
         // 6. Удаляем мертвых игроков (таймаут)
-        removeTimedOutPlayers();
+        //removeTimedOutPlayers();
 
         // 7. Увеличиваем номер состояния
         gameState.incrementStateOrder();
