@@ -66,13 +66,23 @@ public class MasterNode extends Node {
 
     @Override
     protected void onStart() {
-        // Создаем игровой движок
-        gameEngine = new GameEngine(context.getGameConfig());
-        context.setGameEngine(gameEngine);
+        // ✅ ПРОВЕРЯЕМ: Если GameEngine уже создан (Deputy promotion), не перезаписываем!
+        if (context.getGameEngine() == null) {
+            // Только для НОВОЙ игры
+            gameEngine = new GameEngine(context.getGameConfig());
+            context.setGameEngine(gameEngine);
 
-        // Добавляем себя как игрока
-        Player localPlayer = context.getLocalPlayer();
-        gameEngine.addPlayer(localPlayer);
+            // Добавляем себя как игрока
+            Player localPlayer = context.getLocalPlayer();
+            Snake snake = gameEngine.addPlayer(localPlayer);
+            Logger.info("Player {} joined the game with snake at {}",
+                    localPlayer.getName(),
+                    snake.getHead());
+        } else {
+            // Для Deputy promotion - используем существующий
+            gameEngine = context.getGameEngine();
+            Logger.info("Using existing GameEngine from onStart()");
+        }
 
         context.setMasterAddress(null); // Мы сами мастер
 
@@ -87,7 +97,11 @@ public class MasterNode extends Node {
 
         // Запускаем проверку таймаутов
         startTimeoutChecker();
+
+        Logger.info("MASTER node started for player {}", context.getLocalPlayer().getName());
     }
+
+
 
     @Override
     protected void onStop() {
