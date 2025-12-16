@@ -125,7 +125,7 @@ public class GameEngine {
             } else if (snake.isZombie()) {
                 // если уже ZOMBIE и игрок ушёл давно — можно удалить змейку
                 // (оставляю как было у вас: удаляем окончательно)
-                gameState.removeSnake(playerId);
+                //gameState.removeSnake(playerId);
             }
         });
 

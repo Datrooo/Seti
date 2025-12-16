@@ -121,7 +121,7 @@ public class DeputyNode extends Node {
                     break;
                 }
             }
-            context.getNetworkManager().unregisterPeer(oldMasterAddr);
+            //context.getNetworkManager().unregisterPeer(oldMasterAddr);
             Logger.info("Removed dead master peer {}", oldMasterAddr);
         }
 
@@ -140,8 +140,8 @@ public class DeputyNode extends Node {
                 Snake deadSnake = gameEngine.getGameState().getSnakeByPlayerId(oldMasterId);
                 if (deadSnake != null && deadSnake.isAlive()) {
                     deadSnake.setState(Snake.SnakeState.ZOMBIE);
-                    Logger.info("Dead master {} snake became zombie", oldMasterId);
-                }
+                    context.getGameEngine().removePlayer(oldMasterId);
+                    Logger.info("Removed old master player {} from game state", oldMasterId);                }
             }
         }
 
