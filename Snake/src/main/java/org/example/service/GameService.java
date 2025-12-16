@@ -120,19 +120,21 @@ public class GameService {
         this.nodeContext.set(context);
 
         // ВАЖНО: Сначала регистрируем мастера как peer
-        network.registerPeer(masterAddress, 0); // ID мастера пока неизвестен
+        network.registerPeer(masterAddress, 0);
 
-        // Отправляем JoinMsg
+        // Отправляем JoinMsg ОДИН РАЗ с уникальным seq
         SnakesProto.GameMessage joinMsg = MessageBuilder.createJoin(
                 playerName,
                 announcement.getGameName(),
                 requestedRole
         );
+
         network.sendWithAck(joinMsg, masterAddress);
+
 
         Logger.info("Join request sent to master at {}", masterAddress);
 
-        // Создаем узел в зависимости от роли
+        // Создаем узел ПОСЛЕ отправки JOIN
         Node node = createNodeByRole(context, requestedRole);
         node.start();
         this.currentNode.set(node);

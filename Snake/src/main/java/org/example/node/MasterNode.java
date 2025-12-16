@@ -203,6 +203,28 @@ public class MasterNode extends Node {
 
         Logger.info("Received JOIN request from {} (player: {})", sender, joinMsg.getPlayerName());
 
+        // Проверяем, может игрок с этого адреса уже существует
+        for (Player existingPlayer : gameEngine.getGameState().getPlayers()) {
+            if (sender.equals(existingPlayer.getAddress())) {
+                Logger.warn("Player from {} already exists (id={}), sending ACK",
+                        sender, existingPlayer.getId());
+
+                // Отправляем ACK чтобы клиент перестал повторять JOIN
+                context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
+
+                // Отправляем RoleChange еще раз
+                SnakesProto.GameMessage roleChange = MessageBuilder.createRoleChange(
+                        context.getLocalPlayer().getId(),
+                        existingPlayer.getId(),
+                        null,
+                        existingPlayer.getRole()
+                );
+                context.getNetworkManager().sendWithAck(roleChange, sender);
+
+                return; // НЕ создаем дубликат!
+            }
+        }
+
         // Проверяем, можно ли присоединиться
         if (gameEngine.getGameState().getPlayerCount() >= 10) {
             sendError("Game is full", sender);
@@ -238,10 +260,10 @@ public class MasterNode extends Node {
 
         // Отправляем RoleChangeMsg с назначенным ID и ролью
         SnakesProto.GameMessage roleChange = MessageBuilder.createRoleChange(
-                context.getLocalPlayer().getId(), // senderId - мастер
-                newPlayerId,                       // receiverId - новый игрок
-                null,                              // senderRole не меняется
-                requestedRole                      // receiverRole - назначенная роль
+                context.getLocalPlayer().getId(),
+                newPlayerId,
+                null,
+                requestedRole
         );
         context.getNetworkManager().sendWithAck(roleChange, sender);
 
@@ -252,6 +274,7 @@ public class MasterNode extends Node {
             selectDeputy();
         }
     }
+
 
 
     /**

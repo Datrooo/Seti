@@ -29,7 +29,7 @@ public class MessageBuilder {
     private static long generateMsgSeq() {
         return msgSeqGenerator.incrementAndGet();
     }
-    
+
     /**
      * Создает SteerMsg
      */
@@ -117,10 +117,11 @@ public class MessageBuilder {
                 .build();
 
         return SnakesProto.GameMessage.newBuilder()
-                .setMsgSeq(generateMsgSeq())
+                .setMsgSeq(System.nanoTime()) // Используем nanoTime для уникальности
                 .setJoin(joinMsg)
-                .build(); // Не указываем senderId, т.к. ID еще не назначен
+                .build();
     }
+
 
 
     /**
