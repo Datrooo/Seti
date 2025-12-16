@@ -129,6 +129,9 @@ public class AckManager {
      * Проверяет таймауты всех peer'ов
      */
     public void checkPeerTimeouts(long timeoutMs, Consumer<PeerInfo> onTimeout) {
+        Logger.debug("checkPeerTimeouts called with timeoutMs={}, peers count={}",
+                timeoutMs, peers.size());
+
         List<PeerInfo> timedOutPeers = new ArrayList<>();
 
         for (PeerInfo peer : peers.values()) {
@@ -143,6 +146,7 @@ public class AckManager {
             onTimeout.accept(peer);
         }
     }
+
 
 
     /**

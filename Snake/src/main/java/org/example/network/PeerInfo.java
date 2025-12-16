@@ -32,12 +32,13 @@ public class PeerInfo {
      * Проверяет, истёк ли таймаут
      */
     public boolean isTimedOut(int timeoutMs) {
-        long elapsed = System.currentTimeMillis() - lastActivityTime;
+        long now = System.currentTimeMillis();
+        long elapsed = now - lastActivityTime;
         boolean timedOut = elapsed > timeoutMs;
-        if (timedOut) {
-            Logger.warn("Peer {} timeout check: elapsed={}ms, limit={}ms",
-                    address, elapsed, timeoutMs);
-        }
+
+        Logger.debug("Timeout check for {}: now={}, lastActivity={}, elapsed={}ms, limit={}ms, timedOut={}",
+                address, now, lastActivityTime, elapsed, timeoutMs, timedOut);
+
         return timedOut;
     }
 

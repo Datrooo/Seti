@@ -158,14 +158,19 @@ public class MasterNode extends Node {
     private void startTimeoutChecker() {
         int timeoutMs = context.getGameConfig().nodeTimeoutMs();
 
+        Logger.info("Starting timeout checker: timeoutMs={}, checkInterval={}ms",
+                timeoutMs, timeoutMs / 2);
+
         scheduler.scheduleAtFixedRate(() -> {
             try {
+                Logger.debug("Checking peer timeouts with limit={}ms", timeoutMs);
                 context.getNetworkManager().checkPeerTimeouts(timeoutMs, this::handlePlayerTimeout);
             } catch (Exception e) {
                 Logger.error("Error checking timeouts: {}", e.getMessage(), e);
             }
         }, timeoutMs, timeoutMs / 2, TimeUnit.MILLISECONDS);
     }
+
 
     private void handlePlayerTimeout(PeerInfo peer) {
         Logger.warn("Player {} timed out, removing", peer.getPlayerId());
