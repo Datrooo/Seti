@@ -3,6 +3,7 @@ package org.example.node;
 import org.example.game.engine.GameEngine;
 import org.example.game.model.Direction;
 import org.example.game.model.GameState;
+import org.example.game.model.Snake;
 import org.example.game.serialization.MessageBuilder;
 import org.example.game.serialization.StateSerializer;
 import org.example.network.NetworkManager;
@@ -105,10 +106,28 @@ public class DeputyNode extends Node {
     private void promoteToMaster() {
         Logger.info("Deputy promoting to MASTER");
 
+        // ✅ Логируем состояние ДО повышения
+        GameState currentState = context.getCurrentState();
+        if (currentState != null) {
+            Logger.info("Current state before promotion: order={}, players={}, snakes={}",
+                    currentState.getStateOrder(),
+                    currentState.getPlayerCount(),
+                    currentState.getSnakes().size());
+
+            // Логируем НАШУ змею
+            int myId = context.getLocalPlayer().getId();
+            for (Snake snake : currentState.getSnakes()) {
+                if (snake.getPlayerId() == myId) {
+                    Logger.info("My snake: alive={}, head={}, bodySize={}",
+                            snake.isAlive(), snake.getHead(), snake.getBody().size());
+                }
+            }
+        }
+
         // Обновляем роль локального игрока
         context.getLocalPlayer().setRole(NodeRole.MASTER);
 
-        // ✅ ВАЖНО: Создаем GameEngine ДО остановки и передаем текущее состояние
+        // ✅ Создаем GameEngine ДО остановки
         if (context.getGameEngine() == null && context.getCurrentState() != null) {
             Logger.info("Creating GameEngine with current state before promotion");
             GameEngine gameEngine = new GameEngine(context.getGameConfig());
@@ -130,6 +149,7 @@ public class DeputyNode extends Node {
 
         Logger.info("Successfully promoted to MASTER");
     }
+
 
 
     private void broadcastNewMaster() {

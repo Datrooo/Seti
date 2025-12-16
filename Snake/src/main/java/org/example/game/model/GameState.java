@@ -19,19 +19,35 @@ public class GameState {
     }
 
     // Глубокое копирование для безопасной передачи между потоками
+    // В GameState.java
+    // В GameState.java
     public GameState copy() {
         GameState copied = new GameState(config);
 
-        this.players.values().forEach(copied::addPlayer);
+        // ✅ Итерируем по values() Map'а
+        for (Player player : this.players.values()) {
+            copied.addPlayer(player);
+        }
 
-        this.snakes.values().forEach(copied::addSnake);
+        // ✅ Итерируем по values() Map'а
+        for (Snake snake : this.snakes.values()) {
+            // Создаем копию змеи
+            Snake copiedSnake = snake.copy(); // Используем метод copy() класса Snake
+            copied.addSnake(copiedSnake);
+        }
 
-        this.foods.forEach(copied::addFood);
+        // Копируем еду
+        for (Coord food : this.foods) {
+            copied.addFood(food);
+        }
 
+        // ✅ Копируем stateOrder
         copied.stateOrder = this.stateOrder;
 
         return copied;
     }
+
+
 
     public void incrementStateOrder() {
         stateOrder++;

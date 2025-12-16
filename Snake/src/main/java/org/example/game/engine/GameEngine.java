@@ -7,7 +7,7 @@ import org.example.util.Logger;
 import java.util.*;
 
 public class GameEngine {
-    private final GameState gameState;
+    private GameState gameState;
     private final TorusField field;
     private final CollisionDetector collisionDetector;
     private final FoodSpawner foodSpawner;
@@ -130,20 +130,24 @@ public class GameEngine {
     /**
      * Обновляет состояние игры (для клиентов, получающих StateMsg)
      */
+    // В GameEngine.java
     public synchronized void setGameState(GameState newState) {
-        // Этот метод используется на клиентской стороне
-        // Копируем данные из полученного состояния
-        gameState.getPlayers().clear();
-        newState.getPlayers().forEach(gameState::addPlayer);
+        Logger.debug("setGameState: restoring state with {} players, {} snakes",
+                newState.getPlayerCount(), newState.getSnakes().size());
 
-        gameState.getSnakes().clear();
-        newState.getSnakes().forEach(gameState::addSnake);
+        // ✅ Полностью заменяем состояние (не мержим!)
+        this.gameState = newState.copy();
 
-        gameState.getFoods().clear();
-        newState.getFoods().forEach(gameState::addFood);
+        Logger.debug("State restored: players={}, snakes={}",
+                gameState.getPlayerCount(), gameState.getSnakes().size());
 
-        gameState.setStateOrder(newState.getStateOrder());
+        // Логируем змей для отладки
+        for (Snake snake : gameState.getSnakes()) {
+            Logger.debug("Snake player={}, alive={}, head={}",
+                    snake.getPlayerId(), snake.isAlive(), snake.getHead());
+        }
     }
+
 
     private void checkFoodCollisions() {
         Set<Coord> foodsToRemove = new HashSet<>();

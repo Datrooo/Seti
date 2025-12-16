@@ -51,6 +51,11 @@ public class Snake {
         return new ArrayList<>(body);
     }
 
+    // ✅ ДОБАВЛЕНО: Доступ к внутреннему списку для модификации
+    public List<Coord> getBodyInternal() {
+        return body;
+    }
+
     public int getLength() {
         return body.size();
     }
@@ -85,6 +90,25 @@ public class Snake {
         }
     }
 
+    // ✅ ИСПРАВЛЕННЫЙ метод copy()
+    public Snake copy() {
+        Snake copied = new Snake(this.playerId, this.getHead(), this.headDirection);
+
+        // Очищаем body (там уже есть голова из конструктора)
+        copied.body.clear();
+
+        // Копируем все сегменты тела
+        copied.body.addAll(this.body);
+
+        // ✅ Копируем статус через state
+        copied.state = this.state;
+
+        // Копируем отложенное направление
+        copied.pendingDirection = this.pendingDirection;
+
+        return copied;
+    }
+
     public void kill() {
         this.state = SnakeState.ZOMBIE;
     }
@@ -95,6 +119,16 @@ public class Snake {
 
     public boolean isZombie() {
         return state == SnakeState.ZOMBIE;
+    }
+
+    // ✅ ДОБАВЛЕНО: Setter для alive через state
+    public void setAlive(boolean alive) {
+        this.state = alive ? SnakeState.ALIVE : SnakeState.ZOMBIE;
+    }
+
+    // ✅ ДОБАВЛЕНО: Setter для state
+    public void setState(SnakeState state) {
+        this.state = state;
     }
 
     public int getPlayerId() {

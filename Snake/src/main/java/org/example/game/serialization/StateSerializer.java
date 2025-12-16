@@ -3,6 +3,7 @@ package org.example.game.serialization;
 import org.example.game.model.*;
 import org.example.node.NodeRole;
 import org.example.protocol.SnakesProto;
+import org.example.util.Logger;
 
 import java.net.InetSocketAddress;
 import java.util.List;
@@ -34,30 +35,36 @@ public class StateSerializer {
     /**
      * Конвертирует Protobuf GameState в доменную модель
      */
+    // В StateSerializer.java
     public static GameState fromProto(SnakesProto.GameState protoState, GameConfig config) {
-        GameState state = new GameState(config);
+        GameState gameState = new GameState(config);
 
-        // Восстанавливаем игроков
-        if (protoState.hasPlayers()) {
-            for (SnakesProto.GamePlayer protoPlayer : protoState.getPlayers().getPlayersList()) {
-                Player player = playerFromProto(protoPlayer);
-                state.addPlayer(player);
-            }
+        // Добавляем игроков
+        for (SnakesProto.GamePlayer protoPlayer : protoState.getPlayers().getPlayersList()) {
+            Player player = playerFromProto(protoPlayer);
+            gameState.addPlayer(player);
         }
 
-        // Восстанавливаем змеек
+        // ✅ Добавляем змей с правильным статусом
         for (SnakesProto.GameState.Snake protoSnake : protoState.getSnakesList()) {
             Snake snake = snakeFromProto(protoSnake);
-            state.addSnake(snake);
+            gameState.addSnake(snake);
         }
 
-        // Восстанавливаем еду
-        for (SnakesProto.GameState.Coord protoCoord : protoState.getFoodsList()) {
-            state.addFood(coordFromProto(protoCoord));
+        // Добавляем еду
+        for (SnakesProto.GameState.Coord protoFood : protoState.getFoodsList()) {
+            Coord food = coordFromProto(protoFood);
+            gameState.addFood(food);
         }
 
-        return state;
+        // ✅ Сохраняем stateOrder
+        gameState.setStateOrder(protoState.getStateOrder());
+
+        return gameState;
     }
+
+
+
 
     /**
      * Конвертирует GameConfig в Protobuf
@@ -118,36 +125,38 @@ public class StateSerializer {
         return builder.build();
     }
 
+    // В StateSerializer.java
     private static Snake snakeFromProto(SnakesProto.GameState.Snake protoSnake) {
-        List<SnakesProto.GameState.Coord> protoPoints = protoSnake.getPointsList();
+        // Извлекаем голову
+        Coord head = coordFromProto(protoSnake.getPoints(0));
 
-        if (protoPoints.isEmpty()) {
-            throw new IllegalArgumentException("Snake must have at least one point");
+        // Создаем змею
+        Snake snake = new Snake(
+                protoSnake.getPlayerId(),
+                head,
+                directionFromProto(protoSnake.getHeadDirection())
+        );
+
+        // Добавляем сегменты тела
+        Coord current = head;
+        for (int i = 1; i < protoSnake.getPointsCount(); i++) {
+            SnakesProto.GameState.Coord protoPoint = protoSnake.getPoints(i);
+            int dx = protoPoint.getX();
+            int dy = protoPoint.getY();
+            current = new Coord(current.x() + dx, current.y() + dy);
+            snake.getBodyInternal().add(current); // ← Используем getBodyInternal()
         }
 
-        // Восстанавливаем абсолютные координаты из относительных смещений
-        List<Coord> absoluteCoords = new java.util.ArrayList<>();
 
-        // Первая точка - абсолютные координаты головы
-        int currentX = protoPoints.get(0).getX();
-        int currentY = protoPoints.get(0).getY();
-        absoluteCoords.add(new Coord(currentX, currentY));
-
-        // Остальные точки - применяем смещения
-        for (int i = 1; i < protoPoints.size(); i++) {
-            currentX += protoPoints.get(i).getX();
-            currentY += protoPoints.get(i).getY();
-            absoluteCoords.add(new Coord(currentX, currentY));
+        // ✅ Используем setAlive()
+        if (protoSnake.getState() == SnakesProto.GameState.Snake.SnakeState.ZOMBIE) {
+            snake.setAlive(false);
         }
 
-        Direction direction = directionFromProto(protoSnake.getHeadDirection());
-        Snake.SnakeState state = protoSnake.getState() == SnakesProto.GameState.Snake.SnakeState.ZOMBIE
-                ? Snake.SnakeState.ZOMBIE
-                : Snake.SnakeState.ALIVE;
 
-        // Используем новый конструктор
-        return new Snake(protoSnake.getPlayerId(), absoluteCoords, direction, state);
+        return snake;
     }
+
 
 
     private static SnakesProto.GamePlayers playersToProto(Iterable<Player> players) {
