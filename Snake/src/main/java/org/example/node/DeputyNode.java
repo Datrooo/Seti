@@ -21,6 +21,8 @@ public class DeputyNode extends Node {
     private final ScheduledExecutorService scheduler;
     private volatile Direction pendingDirection;
     private final AtomicLong lastMasterActivity;
+    private static final long MASTER_CHECK_INTERVAL_MS = 200;
+
 
     public DeputyNode(NodeContext context) {
         super(context, NodeRole.DEPUTY);
@@ -73,10 +75,8 @@ public class DeputyNode extends Node {
     }
 
     private void startMasterTimeoutChecker() {
-        int timeoutMs = context.getGameConfig().nodeTimeoutMs();
-
-        Logger.info("startMasterTimeoutChecker: timeoutMs={}, checkInterval={}ms",
-                timeoutMs, 500); // ← Проверяем каждые 500ms вместо timeoutMs/2
+        int timeoutMs = (int) (0.8 * context.getGameConfig().stateDelayMs());
+        Logger.info("startMasterTimeoutChecker: timeoutMs={}, checkInterval={}ms", timeoutMs, MASTER_CHECK_INTERVAL_MS);
 
         scheduler.scheduleAtFixedRate(() -> {
             try {
@@ -84,18 +84,15 @@ public class DeputyNode extends Node {
             } catch (Exception e) {
                 Logger.error("Error checking master timeout: {}", e.getMessage(), e);
             }
-        }, 500, 500, TimeUnit.MILLISECONDS); // ← Быстрее!
-
-        Logger.info("Scheduled master timeout checker");
+        }, MASTER_CHECK_INTERVAL_MS, MASTER_CHECK_INTERVAL_MS, TimeUnit.MILLISECONDS);
     }
-
 
     private void checkMasterTimeout() {
         long now = System.currentTimeMillis();
         long lastActivity = lastMasterActivity.get();
         long elapsed = now - lastActivity;
-        int timeoutMs = context.getGameConfig().nodeTimeoutMs();
 
+        int timeoutMs = (int) (0.8 * context.getGameConfig().stateDelayMs());
         Logger.debug("Master timeout check: elapsed={}ms, limit={}ms", elapsed, timeoutMs);
 
         if (elapsed > timeoutMs) {
@@ -108,13 +105,10 @@ public class DeputyNode extends Node {
         Logger.info("Deputy promoting to MASTER");
 
         GameState currentState = context.getCurrentState();
-
-        // ✅ Получаем старого мастера через поиск
         InetSocketAddress oldMasterAddr = context.getMasterAddress();
-        Integer oldMasterId = null;
 
+        Integer oldMasterId = null;
         if (oldMasterAddr != null) {
-            // Ищем peer с этим адресом
             for (PeerInfo peer : context.getNetworkManager().getAllPeers()) {
                 if (peer.getAddress().equals(oldMasterAddr)) {
                     oldMasterId = peer.getPlayerId();
@@ -122,8 +116,6 @@ public class DeputyNode extends Node {
                     break;
                 }
             }
-
-            // ✅ Удаляем мертвого мастера СРАЗУ
             context.getNetworkManager().unregisterPeer(oldMasterAddr);
             Logger.info("Removed dead master peer {}", oldMasterAddr);
         }
@@ -136,20 +128,18 @@ public class DeputyNode extends Node {
             gameEngine.setGameState(currentState);
             context.setGameEngine(gameEngine);
 
-            // ✅ ДЕЛАЕМ змею старого мастера зомби
+            // FIX: старый мастер -> ZOMBIE, не setAlive(false)
             if (oldMasterId != null) {
                 Snake deadSnake = gameEngine.getGameState().getSnakeByPlayerId(oldMasterId);
                 if (deadSnake != null && deadSnake.isAlive()) {
-                    deadSnake.setAlive(false);
+                    deadSnake.setState(Snake.SnakeState.ZOMBIE);
                     Logger.info("Dead master {} snake became zombie", oldMasterId);
                 }
             }
         }
 
         context.setMasterAddress(null);
-
-        broadcastNewMaster(); // Старого мастера уже нет в peers
-
+        broadcastNewMaster();
         this.stop();
 
         MasterNode masterNode = new MasterNode(context);
@@ -158,7 +148,25 @@ public class DeputyNode extends Node {
         Logger.info("Successfully promoted to MASTER");
     }
 
+    private void handleRoleChangeMessage(SnakesProto.GameMessage message, InetSocketAddress sender) {
+        if (!message.hasRoleChange()) return;
 
+        SnakesProto.GameMessage.RoleChangeMsg roleChange = message.getRoleChange();
+
+        if (roleChange.hasSenderRole() && roleChange.getSenderRole() == SnakesProto.NodeRole.MASTER) {
+            InetSocketAddress old = context.getMasterAddress();
+            context.setMasterAddress(sender);
+            lastMasterActivity.set(System.currentTimeMillis());
+
+            // FIX: перенаправить pending-сообщения на нового мастера
+            context.getNetworkManager().redirectPeer(old, sender, message.getSenderId());
+            Logger.info("New master: {}", sender);
+        }
+
+        // остальное оставьте как было:
+        context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
+        context.getNetworkManager().updatePeerActivity(sender);
+    }
 
 
 
@@ -224,33 +232,6 @@ public class DeputyNode extends Node {
         context.getNetworkManager().updatePeerActivity(sender);
 
         Logger.debug("Received state order={} from master", newState.getStateOrder());
-    }
-
-    private void handleRoleChangeMessage(SnakesProto.GameMessage message, InetSocketAddress sender) {
-        if (!message.hasRoleChange()) {
-            return;
-        }
-
-        SnakesProto.GameMessage.RoleChangeMsg roleChange = message.getRoleChange();
-
-        if (message.hasReceiverId() &&
-                message.getReceiverId() == context.getLocalPlayer().getId()) {
-
-            if (roleChange.hasReceiverRole()) {
-                NodeRole newRole = StateSerializer.nodeRoleFromProto(roleChange.getReceiverRole());
-                handleRoleChange(newRole, context.getMasterAddress());
-            }
-        }
-
-        if (roleChange.hasSenderRole() &&
-                roleChange.getSenderRole() == SnakesProto.NodeRole.MASTER) {
-            context.setMasterAddress(sender);
-            lastMasterActivity.set(System.currentTimeMillis());
-            Logger.info("New master: {}", sender);
-        }
-
-        context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
-        context.getNetworkManager().updatePeerActivity(sender);
     }
 
     private void startPingTask() {

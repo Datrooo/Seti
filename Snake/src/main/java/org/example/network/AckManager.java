@@ -171,4 +171,23 @@ public class AckManager {
         return new ArrayList<>(peers.values());
     }
 
+    public void redirectPeer(InetSocketAddress from, InetSocketAddress to) {
+        if (from == null || to == null || from.equals(to)) return;
+
+        PeerInfo fromPeer = (PeerInfo) peers.get(from);
+        PeerInfo toPeer = (PeerInfo) peers.get(to);
+
+        if (toPeer == null) {
+            int pid = (fromPeer != null) ? fromPeer.getPlayerId() : 0;
+            toPeer = new PeerInfo(to, pid);
+            peers.put(to, toPeer);
+        }
+
+        if (fromPeer != null) {
+            toPeer.getPendingMessages().putAll(fromPeer.getPendingMessages());
+            peers.remove(from);
+            Logger.info("Redirected pending messages {} -> {}", from, to);
+        }
+    }
+
 }

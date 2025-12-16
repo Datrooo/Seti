@@ -8,7 +8,8 @@ public class Snake {
     private final List<Coord> body; // [0] - голова, [n-1] - хвост
     private Direction headDirection;
     private SnakeState state;
-    private Direction pendingDirection; // Следующее направление (из SteerMsg)
+    private Direction pendingDirection; // Следующее направление (из
+    // SteerMsg)
 
     public Snake(int playerId, Coord headPosition, Direction initialDirection) {
         this.playerId = playerId;

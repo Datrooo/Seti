@@ -117,17 +117,11 @@ public class MasterNode extends Node {
         }
     }
 
-    /**
-     * Игровой цикл - обновление состояния игры
-     */
     private void startGameLoop() {
         int stateDelayMs = context.getGameConfig().stateDelayMs();
-
         scheduler.scheduleAtFixedRate(() -> {
             try {
                 gameEngine.update();
-
-                // ✅ ИСПРАВЛЕНО: Ищем змею через цикл
                 GameState newState = gameEngine.getGameState();
 
                 Snake mySnake = null;
@@ -137,36 +131,43 @@ public class MasterNode extends Node {
                         break;
                     }
                 }
-
                 Logger.debug("After update: order={}, mySnake alive={}",
                         newState.getStateOrder(),
                         mySnake != null ? mySnake.isAlive() : "NOT FOUND");
 
-                // ✅ КРИТИЧНО: Обновляем context.currentState для UI!
                 context.setCurrentState(newState);
-
             } catch (Exception e) {
                 Logger.error("Error in game loop: {}", e.getMessage(), e);
             }
-        }, stateDelayMs, stateDelayMs, TimeUnit.MILLISECONDS);
+        }, 0, stateDelayMs, TimeUnit.MILLISECONDS); // FIX: initialDelay=0
     }
 
-
-
-    /**
-     * Рассылка состояния игры всем игрокам
-     */
     private void startStateUpdates() {
         int stateDelayMs = context.getGameConfig().stateDelayMs();
-
         scheduler.scheduleAtFixedRate(() -> {
             try {
                 broadcastState();
             } catch (Exception e) {
                 Logger.error("Error broadcasting state: {}", e.getMessage(), e);
             }
-        }, stateDelayMs, stateDelayMs, TimeUnit.MILLISECONDS);
+        }, 0, stateDelayMs, TimeUnit.MILLISECONDS); // FIX: initialDelay=0
     }
+
+    private void startTimeoutChecker() {
+        int timeoutMs = (int) (0.8 * context.getGameConfig().stateDelayMs());
+        long checkInterval = Math.max(100, timeoutMs / 2L);
+
+        Logger.info("Starting timeout checker: timeoutMs={}, checkInterval={}ms", timeoutMs, checkInterval);
+
+        scheduler.scheduleAtFixedRate(() -> {
+            try {
+                context.getNetworkManager().checkPeerTimeouts(timeoutMs, this::handlePlayerTimeout);
+            } catch (Exception e) {
+                Logger.error("Error checking timeouts: {}", e.getMessage(), e);
+            }
+        }, timeoutMs, checkInterval, TimeUnit.MILLISECONDS); // первая проверка через timeoutMs
+    }
+
 
     private void broadcastState() {
         SnakesProto.GameMessage stateMsg = MessageBuilder.createState(
@@ -207,25 +208,7 @@ public class MasterNode extends Node {
         context.getNetworkManager().announceGame(announcement);
     }
 
-    /**
-     * Проверка таймаутов игроков
-     */
-    private void startTimeoutChecker() {
-        int timeoutMs = context.getGameConfig().nodeTimeoutMs();
 
-        Logger.info("Starting timeout checker: timeoutMs={}, checkInterval={}ms",
-                timeoutMs, timeoutMs / 2);
-
-        scheduler.scheduleAtFixedRate(() -> {
-            try {
-                Logger.debug("Checking peer timeouts with limit={}ms", timeoutMs);
-                context.getNetworkManager().checkPeerTimeouts(timeoutMs, this::handlePlayerTimeout);
-            } catch (Exception e) {
-                Logger.error("Error checking timeouts: {}", e.getMessage(), e);
-            }
-        }, timeoutMs * 2L, timeoutMs / 2, TimeUnit.MILLISECONDS); // ← ОТЛОЖИТЬ первую проверку!
-        //  ^^^^^^^^^^^^ Вместо timeoutMs дать больше времени на переход
-    }
 
 
 

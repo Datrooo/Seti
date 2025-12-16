@@ -149,6 +149,13 @@ public class NetworkManager {
         return ackManager.getAllPeers();
     }
 
+    public void redirectPeer(InetSocketAddress from, InetSocketAddress to, int toPlayerId) {
+        if (to == null) return;
+        registerPeer(to, toPlayerId);
+        ackManager.redirectPeer(from, to);
+    }
+
+
 
 
     // Делегирование методов диспетчера
