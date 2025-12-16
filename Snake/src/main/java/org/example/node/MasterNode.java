@@ -229,9 +229,18 @@ public class MasterNode extends Node {
 
     private void handlePlayerTimeout(PeerInfo peer) {
         Logger.warn("Player {} timed out, removing", peer.getPlayerId());
+
+        // ✅ КРИТИЧНО: Делаем змею зомби ПЕРЕД удалением игрока!
+        Snake snake = gameEngine.getGameState().getSnakeByPlayerId(peer.getPlayerId());
+        if (snake != null && snake.isAlive()) {
+            snake.setAlive(false);
+            Logger.info("Player {} left, snake became zombie", peer.getPlayerId());
+        }
+
         gameEngine.removePlayer(peer.getPlayerId());
         context.getNetworkManager().unregisterPeer(peer.getAddress());
     }
+
 
     /**
      * Обработка Ping сообщения

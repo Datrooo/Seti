@@ -86,42 +86,12 @@ public class GameController {
 
         GameState state = gameService.getGameState();
         if (state == null) {
-            Logger.warn("UI: GameState is NULL!");
             return;
         }
 
-        // ✅ ИСПРАВЛЕНО: Итерация по Collection
-        Logger.debug("UI: order={}, players={}, snakes={}",
-                state.getStateOrder(),
-                state.getPlayerCount(),
-                state.getSnakes().size());
 
-        // Логируем ВАШУ змею
-        Player localPlayer = gameService.getLocalPlayer();
-        if (localPlayer != null) {
-            int myId = localPlayer.getId();
-            Snake mySnake = null;
-
-            // ✅ ИСПРАВЛЕНО: Ищем через цикл
-            for (Snake snake : state.getSnakes()) {
-                if (snake.getPlayerId() == myId) {
-                    mySnake = snake;
-                    break;
-                }
-            }
-
-            if (mySnake != null) {
-                Logger.debug("UI: My snake (id={}): alive={}, head={}",
-                        myId, mySnake.isAlive(), mySnake.getHead());
-            } else {
-                Logger.warn("UI: My snake NOT FOUND! myId={}", myId);
-            }
-        }
-
-        // Отрисовка игрового поля
         renderer.render(state);
 
-        // Обновление информации об игре
         Platform.runLater(() -> {
             updateGameInfo(state);
             updatePlayersTable(state);

@@ -74,20 +74,20 @@ public class DeputyNode extends Node {
     private void startMasterTimeoutChecker() {
         int timeoutMs = context.getGameConfig().nodeTimeoutMs();
 
-        Logger.info("startMasterTimeoutChecker: timeoutMs={}, interval={}ms",
-                timeoutMs, timeoutMs / 2);
+        Logger.info("startMasterTimeoutChecker: timeoutMs={}, checkInterval={}ms",
+                timeoutMs, 500); // ← Проверяем каждые 500ms вместо timeoutMs/2
 
         scheduler.scheduleAtFixedRate(() -> {
             try {
-                Logger.debug("Running checkMasterTimeout...");
                 checkMasterTimeout();
             } catch (Exception e) {
                 Logger.error("Error checking master timeout: {}", e.getMessage(), e);
             }
-        }, timeoutMs, timeoutMs / 2, TimeUnit.MILLISECONDS);
+        }, 500, 500, TimeUnit.MILLISECONDS); // ← Быстрее!
 
         Logger.info("Scheduled master timeout checker");
     }
+
 
     private void checkMasterTimeout() {
         long now = System.currentTimeMillis();

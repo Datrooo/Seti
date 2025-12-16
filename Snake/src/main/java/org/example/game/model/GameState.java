@@ -132,4 +132,15 @@ public class GameState {
     public void setStateOrder(int order) {
         this.stateOrder = order;
     }
+
+    // В GameState.java
+    public Snake getSnakeByPlayerId(int playerId) {
+        for (Snake snake : snakes.values()) {
+            if (snake.getPlayerId() == playerId) {
+                return snake;
+            }
+        }
+        return null;
+    }
+
 }
