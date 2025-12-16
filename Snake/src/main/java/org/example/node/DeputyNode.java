@@ -12,17 +12,14 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class DeputyNode extends Node {
     private final ScheduledExecutorService scheduler;
-    private final AtomicLong lastMasterActivity;
     private volatile Direction pendingDirection;
 
     public DeputyNode(NodeContext context) {
         super(context, NodeRole.DEPUTY);
         this.scheduler = Executors.newScheduledThreadPool(2);
-        this.lastMasterActivity = new AtomicLong(System.currentTimeMillis());
         this.pendingDirection = null;
     }
 
@@ -48,8 +45,8 @@ public class DeputyNode extends Node {
         // Запускаем отправку Ping мастеру
         startPingTask();
 
-        // Запускаем мониторинг мастера
-        startMasterMonitoring();
+        // Запускаем проверку таймаута мастера
+        startMasterTimeoutChecker();
 
         Logger.info("DeputyNode started, monitoring master at {}", context.getMasterAddress());
     }
@@ -71,8 +68,89 @@ public class DeputyNode extends Node {
 
         if (newRole == NodeRole.MASTER) {
             // Становимся мастером
-            becomeMaster();
+            promoteToMaster();
         }
+    }
+
+    /**
+     * Запуск проверки таймаута мастера
+     */
+    private void startMasterTimeoutChecker() {
+        int timeoutMs = context.getGameConfig().nodeTimeoutMs();
+
+        scheduler.scheduleAtFixedRate(() -> {
+            try {
+                checkMasterTimeout();
+            } catch (Exception e) {
+                Logger.error("Error checking master timeout: {}", e.getMessage(), e);
+            }
+        }, timeoutMs, timeoutMs / 2, TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * Проверка таймаута мастера через NetworkManager
+     */
+    private void checkMasterTimeout() {
+        InetSocketAddress masterAddr = context.getMasterAddress();
+        if (masterAddr == null) {
+            return;
+        }
+
+        NetworkManager network = context.getNetworkManager();
+        int timeoutMs = context.getGameConfig().nodeTimeoutMs();
+
+        // Проверяем таймаут мастера
+        network.checkPeerTimeouts(timeoutMs, peerInfo -> {
+            if (peerInfo.getAddress().equals(masterAddr)) {
+                Logger.warn("Master {} timed out, promoting to MASTER", masterAddr);
+                promoteToMaster();
+            }
+        });
+    }
+
+    /**
+     * Повышение Deputy до Master
+     */
+    private void promoteToMaster() {
+        Logger.info("Deputy promoting to MASTER");
+
+        // Останавливаем DeputyNode
+        this.stop();
+
+        // Обновляем роль локального игрока
+        context.getLocalPlayer().setRole(NodeRole.MASTER);
+        context.setMasterAddress(null); // Мы теперь мастер
+
+        // Создаем MasterNode
+        MasterNode masterNode = new MasterNode(context);
+        masterNode.start();
+
+        Logger.info("Successfully promoted to MASTER");
+
+        // Рассылаем всем игрокам RoleChange что мы теперь мастер
+        broadcastNewMaster();
+    }
+
+    /**
+     * Рассылка уведомления о новом мастере всем игрокам
+     */
+    private void broadcastNewMaster() {
+        NetworkManager network = context.getNetworkManager();
+        int myId = context.getLocalPlayer().getId();
+
+        // Получаем всех peer'ов
+        for (var peer : network.getAllPeers()) {
+            SnakesProto.GameMessage roleChange = MessageBuilder.createRoleChange(
+                    myId,
+                    peer.getPlayerId(),
+                    NodeRole.MASTER,
+                    null
+            );
+
+            network.sendWithAck(roleChange, peer.getAddress());
+        }
+
+        Logger.info("Broadcasted new master role to all players");
     }
 
     /**
@@ -108,18 +186,19 @@ public class DeputyNode extends Node {
             return;
         }
 
-        // Обновляем время последней активности мастера
-        lastMasterActivity.set(System.currentTimeMillis());
-
         // Обновляем состояние игры
         GameState newState = StateSerializer.fromProto(
                 message.getState().getState(),
                 context.getGameConfig()
         );
 
+        // Для MASTER - обновляем GameEngine
         if (context.getGameEngine() != null) {
             context.getGameEngine().setGameState(newState);
         }
+
+        // Для всех - сохраняем в context
+        context.setCurrentState(newState);
 
         // Отправляем ACK
         context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
@@ -152,12 +231,12 @@ public class DeputyNode extends Node {
         if (roleChange.hasSenderRole() &&
                 roleChange.getSenderRole() == SnakesProto.NodeRole.MASTER) {
             context.setMasterAddress(sender);
-            lastMasterActivity.set(System.currentTimeMillis());
             Logger.info("New master: {}", sender);
         }
 
         // Отправляем ACK
         context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
+        context.getNetworkManager().updatePeerActivity(sender);
     }
 
     /**
@@ -187,59 +266,5 @@ public class DeputyNode extends Node {
         );
 
         context.getNetworkManager().sendWithAck(ping, masterAddr);
-    }
-
-    /**
-     * Мониторинг состояния мастера
-     */
-    private void startMasterMonitoring() {
-        int nodeTimeoutMs = context.getGameConfig().nodeTimeoutMs();
-
-        scheduler.scheduleAtFixedRate(() -> {
-            try {
-                checkMasterTimeout(nodeTimeoutMs);
-            } catch (Exception e) {
-                Logger.error("Error checking master timeout: {}", e.getMessage());
-            }
-        }, nodeTimeoutMs, nodeTimeoutMs / 2, TimeUnit.MILLISECONDS);
-    }
-
-    private void checkMasterTimeout(int timeoutMs) {
-        long timeSinceLastActivity = System.currentTimeMillis() - lastMasterActivity.get();
-
-        if (timeSinceLastActivity > timeoutMs) {
-            Logger.warn("Master timed out! Becoming new master...");
-            becomeMaster();
-        }
-    }
-
-    /**
-     * Переход в роль MASTER при отвале текущего мастера
-     */
-    private void becomeMaster() {
-        Logger.info("Deputy is becoming MASTER");
-
-        // Обновляем роль
-        role = NodeRole.MASTER;
-        context.getLocalPlayer().setRole(NodeRole.MASTER);
-        context.setMasterAddress(null); // Мы теперь мастер
-
-        // Уведомляем всех игроков о смене мастера
-        SnakesProto.GameMessage roleChange = MessageBuilder.createRoleChange(
-                context.getLocalPlayer().getId(),
-                0, // broadcast
-                NodeRole.MASTER,
-                null
-        );
-
-        // Отправляем всем peer'ам
-        NetworkManager network = context.getNetworkManager();
-        for (var peer : network.getAckManager().getAllPeers().values()) {
-            network.sendWithAck(roleChange, peer.getAddress());
-        }
-
-        // Останавливаем текущий узел и создаем MasterNode
-        // Это должно быть сделано на уровне выше (в GameService)
-        Logger.info("Successfully became MASTER");
     }
 }

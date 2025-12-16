@@ -166,7 +166,9 @@ public class AckManager {
         return peers.get(address);
     }
 
-    public ConcurrentHashMap<InetSocketAddress, PeerInfo> getAllPeers() {
-        return peers;
+    // ДОБАВЬТЕ ЭТОТ МЕТОД:
+    public List<PeerInfo> getAllPeers() {
+        return new ArrayList<>(peers.values());
     }
+
 }

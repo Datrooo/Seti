@@ -121,7 +121,7 @@ public class MasterNode extends Node {
 
         // Отправляем всем зарегистрированным peer'ам
         NetworkManager network = context.getNetworkManager();
-        for (PeerInfo peer : network.getAckManager().getAllPeers().values()) {
+        for (PeerInfo peer : network.getAllPeers()) {
             network.sendWithAck(stateMsg, peer.getAddress());
         }
     }

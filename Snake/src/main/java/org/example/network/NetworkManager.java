@@ -6,6 +6,7 @@ import org.example.util.Logger;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
@@ -142,6 +143,12 @@ public class NetworkManager {
     public void checkPeerTimeouts(long timeoutMs, Consumer<PeerInfo> onTimeout) {
         ackManager.checkPeerTimeouts(timeoutMs, onTimeout);
     }
+
+    // ДОБАВЬТЕ ЭТОТ МЕТОД:
+    public List<PeerInfo> getAllPeers() {
+        return ackManager.getAllPeers();
+    }
+
 
 
     // Делегирование методов диспетчера
