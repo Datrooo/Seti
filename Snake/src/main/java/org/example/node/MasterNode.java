@@ -85,6 +85,7 @@ public class MasterNode extends Node {
         }
 
         context.setMasterAddress(null); // Мы сами мастер
+        bootstrapPeersFromState();
 
         // Запускаем игровой цикл
         startGameLoop();
@@ -383,4 +384,17 @@ public class MasterNode extends Node {
             }
         }
     }
+
+    private void bootstrapPeersFromState() {
+        NetworkManager network = context.getNetworkManager();
+        int myId = context.getLocalPlayer().getId();
+
+        for (Player p : gameEngine.getGameState().getPlayers()) {
+            if (p.getId() == myId) continue;
+            if (p.getAddress() != null) {
+                network.registerPeer(p.getAddress(), p.getId());
+            }
+        }
+    }
+
 }

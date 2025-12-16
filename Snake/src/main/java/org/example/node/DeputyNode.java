@@ -3,6 +3,7 @@ package org.example.node;
 import org.example.game.engine.GameEngine;
 import org.example.game.model.Direction;
 import org.example.game.model.GameState;
+import org.example.game.model.Player;
 import org.example.game.model.Snake;
 import org.example.game.serialization.MessageBuilder;
 import org.example.game.serialization.StateSerializer;
@@ -132,6 +133,8 @@ public class DeputyNode extends Node {
             gameEngine.setGameState(currentState);
             context.setGameEngine(gameEngine);
 
+            registerPeersFromState(currentState);
+
             // FIX: старый мастер -> ZOMBIE, не setAlive(false)
             if (oldMasterId != null) {
                 Snake deadSnake = gameEngine.getGameState().getSnakeByPlayerId(oldMasterId);
@@ -142,6 +145,7 @@ public class DeputyNode extends Node {
             }
         }
 
+        registerPeersFromState(currentState);
         context.setMasterAddress(null);
         broadcastNewMaster();
         this.stop();
@@ -281,4 +285,20 @@ public class DeputyNode extends Node {
 
         context.getNetworkManager().sendWithAck(ping, masterAddr);
     }
+
+    private void registerPeersFromState(GameState state) {
+        if (state == null) return;
+
+        NetworkManager network = context.getNetworkManager();
+        int myId = context.getLocalPlayer().getId();
+
+        for (Player p : state.getPlayers()) {
+            if (p.getId() == myId) continue;
+            InetSocketAddress addr = p.getAddress();
+            if (addr != null) {
+                network.registerPeer(addr, p.getId());
+            }
+        }
+    }
+
 }
