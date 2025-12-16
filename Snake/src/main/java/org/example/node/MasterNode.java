@@ -223,8 +223,10 @@ public class MasterNode extends Node {
             } catch (Exception e) {
                 Logger.error("Error checking timeouts: {}", e.getMessage(), e);
             }
-        }, timeoutMs, timeoutMs / 2, TimeUnit.MILLISECONDS);
+        }, timeoutMs * 2L, timeoutMs / 2, TimeUnit.MILLISECONDS); // ← ОТЛОЖИТЬ первую проверку!
+        //  ^^^^^^^^^^^^ Вместо timeoutMs дать больше времени на переход
     }
+
 
 
     private void handlePlayerTimeout(PeerInfo peer) {

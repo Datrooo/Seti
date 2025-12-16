@@ -106,28 +106,23 @@ public class DeputyNode extends Node {
     private void promoteToMaster() {
         Logger.info("Deputy promoting to MASTER");
 
-        // ✅ Логируем состояние ДО повышения
         GameState currentState = context.getCurrentState();
         if (currentState != null) {
             Logger.info("Current state before promotion: order={}, players={}, snakes={}",
                     currentState.getStateOrder(),
                     currentState.getPlayerCount(),
                     currentState.getSnakes().size());
-
-            // Логируем НАШУ змею
-            int myId = context.getLocalPlayer().getId();
-            for (Snake snake : currentState.getSnakes()) {
-                if (snake.getPlayerId() == myId) {
-                    Logger.info("My snake: alive={}, head={}, bodySize={}",
-                            snake.isAlive(), snake.getHead(), snake.getBody().size());
-                }
-            }
         }
 
-        // Обновляем роль локального игрока
+        // ✅ ОБНОВЛЯЕМ активность старого мастера, чтобы не удалить его сразу!
+        InetSocketAddress oldMaster = context.getMasterAddress();
+        if (oldMaster != null) {
+            context.getNetworkManager().updatePeerActivity(oldMaster);
+            Logger.info("Updated old master {} activity to prevent immediate timeout", oldMaster);
+        }
+
         context.getLocalPlayer().setRole(NodeRole.MASTER);
 
-        // ✅ Создаем GameEngine ДО остановки
         if (context.getGameEngine() == null && context.getCurrentState() != null) {
             Logger.info("Creating GameEngine with current state before promotion");
             GameEngine gameEngine = new GameEngine(context.getGameConfig());
@@ -140,15 +135,14 @@ public class DeputyNode extends Node {
         // Рассылаем ПЕРЕД остановкой scheduler!
         broadcastNewMaster();
 
-        // Теперь останавливаем DeputyNode
         this.stop();
 
-        // Создаем MasterNode (он использует существующий GameEngine)
         MasterNode masterNode = new MasterNode(context);
         masterNode.start();
 
         Logger.info("Successfully promoted to MASTER");
     }
+
 
 
 
