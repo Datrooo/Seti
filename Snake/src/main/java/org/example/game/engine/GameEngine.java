@@ -141,6 +141,8 @@ public class GameEngine {
 
         gameState.getFoods().clear();
         newState.getFoods().forEach(gameState::addFood);
+
+        gameState.setStateOrder(newState.getStateOrder());
     }
 
     private void checkFoodCollisions() {

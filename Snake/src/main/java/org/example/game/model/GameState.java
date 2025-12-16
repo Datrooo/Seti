@@ -20,16 +20,17 @@ public class GameState {
 
     // Глубокое копирование для безопасной передачи между потоками
     public GameState copy() {
-        GameState copy = new GameState(this.config);
-        copy.stateOrder = this.stateOrder;
+        GameState copied = new GameState(config);
 
-        this.snakes.forEach((id, snake) ->
-                copy.snakes.put(id, new Snake(snake)));
+        this.players.values().forEach(copied::addPlayer);
 
-        copy.players.putAll(this.players);
-        copy.foods.addAll(this.foods);
+        this.snakes.values().forEach(copied::addSnake);
 
-        return copy;
+        this.foods.forEach(copied::addFood);
+
+        copied.stateOrder = this.stateOrder;
+
+        return copied;
     }
 
     public void incrementStateOrder() {
@@ -110,5 +111,9 @@ public class GameState {
         return (int) snakes.values().stream()
                 .filter(Snake::isAlive)
                 .count();
+    }
+
+    public void setStateOrder(int order) {
+        this.stateOrder = order;
     }
 }

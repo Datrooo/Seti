@@ -30,7 +30,7 @@ public class MasterNode extends Node {
             this.gameEngine = new GameEngine(context.getGameConfig());
             context.setGameEngine(gameEngine);
 
-            // Добавляем локального игрока
+            // Добавляем локального игрока только для НОВОЙ игры
             Snake snake = gameEngine.addPlayer(context.getLocalPlayer());
             Logger.info("Master created with snake at {}", snake.getHead());
         } else {
@@ -38,14 +38,13 @@ public class MasterNode extends Node {
             Logger.info("Using existing GameEngine from Deputy promotion");
             this.gameEngine = context.getGameEngine();
 
-            // Восстанавливаем состояние из currentState если есть
-            if (context.getCurrentState() != null) {
-                Logger.info("Restoring game state: order={}",
-                        context.getCurrentState().getStateOrder());
-                gameEngine.setGameState(context.getCurrentState());
-            }
+            // НЕ добавляем игрока - он уже есть в состоянии!
+            Logger.info("Game state preserved: order={}, players={}",
+                    gameEngine.getGameState().getStateOrder(),
+                    gameEngine.getGameState().getPlayerCount());
         }
     }
+
 
 
     @Override
