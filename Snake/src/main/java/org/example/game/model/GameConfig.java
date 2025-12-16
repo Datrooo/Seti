@@ -14,17 +14,21 @@ public record GameConfig(
 ) {
 
     public static GameConfig createDefault() {
+        int stateDelay = Config.DEFAULT_STATE_DELAY_MS;
+        int pingDelay = Math.max(1, stateDelay / 10);          // по тексту ТЗ: stateDelay/10
+        int nodeTimeout = Math.max(1, (int) (0.8 * stateDelay)); // по тексту ТЗ: 0.8*stateDelay
         return new GameConfig(
                 Config.DEFAULT_WIDTH,
                 Config.DEFAULT_HEIGHT,
                 Config.DEFAULT_FOOD_STATIC,
                 Config.DEFAULT_FOOD_PER_PLAYER,
-                Config.DEFAULT_STATE_DELAY_MS,
+                stateDelay,
                 Config.DEFAULT_DEAD_FOOD_PROB,
-                Config.PING_DELAY_MS,
-                Config.NODE_TIMEOUT_MS
+                pingDelay,
+                nodeTimeout
         );
     }
+
 
     public int getTotalFood(int playerCount) {
         return foodStatic + foodPerPlayer * playerCount;

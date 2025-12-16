@@ -39,6 +39,8 @@ public class DeputyNode extends Node {
         network.getDispatcher().onRoleChange(this::handleRoleChangeMessage);
         network.getDispatcher().onError(this::handleError);
         network.getDispatcher().onPing(this::handlePing);
+        network.getDispatcher().onAck(this::handleAck);
+
     }
 
     @Override
@@ -61,6 +63,8 @@ public class DeputyNode extends Node {
 
     @Override
     public void handleRoleChange(NodeRole newRole, InetSocketAddress newMasterAddress) {
+        if (!running) return;
+
         Logger.info("Role changed from {} to {}", role, newRole);
         this.role = newRole;
         context.getLocalPlayer().setRole(newRole);
@@ -75,7 +79,7 @@ public class DeputyNode extends Node {
     }
 
     private void startMasterTimeoutChecker() {
-        int timeoutMs = (int) (0.8 * context.getGameConfig().stateDelayMs());
+        int timeoutMs = context.getGameConfig().nodeTimeoutMs();
         Logger.info("startMasterTimeoutChecker: timeoutMs={}, checkInterval={}ms", timeoutMs, MASTER_CHECK_INTERVAL_MS);
 
         scheduler.scheduleAtFixedRate(() -> {
@@ -92,7 +96,7 @@ public class DeputyNode extends Node {
         long lastActivity = lastMasterActivity.get();
         long elapsed = now - lastActivity;
 
-        int timeoutMs = (int) (0.8 * context.getGameConfig().stateDelayMs());
+        int timeoutMs = context.getGameConfig().nodeTimeoutMs();
         Logger.debug("Master timeout check: elapsed={}ms, limit={}ms", elapsed, timeoutMs);
 
         if (elapsed > timeoutMs) {
@@ -149,6 +153,7 @@ public class DeputyNode extends Node {
     }
 
     private void handleRoleChangeMessage(SnakesProto.GameMessage message, InetSocketAddress sender) {
+        if (!running) return;
         if (!message.hasRoleChange()) return;
 
         SnakesProto.GameMessage.RoleChangeMsg roleChange = message.getRoleChange();
@@ -167,6 +172,16 @@ public class DeputyNode extends Node {
         context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
         context.getNetworkManager().updatePeerActivity(sender);
     }
+
+    private void handleAck(SnakesProto.GameMessage message, InetSocketAddress sender) {
+        if (!running) return;
+
+        if (sender.equals(context.getMasterAddress())) {
+            lastMasterActivity.set(System.currentTimeMillis());
+        }
+        context.getNetworkManager().updatePeerActivity(sender);
+    }
+
 
 
 
@@ -211,6 +226,8 @@ public class DeputyNode extends Node {
     }
 
     private void handleState(SnakesProto.GameMessage message, InetSocketAddress sender) {
+        if (!running) return;
+
         if (!message.hasState()) {
             return;
         }
@@ -236,6 +253,10 @@ public class DeputyNode extends Node {
 
     private void startPingTask() {
         int pingDelayMs = context.getGameConfig().pingDelayMs();
+        int timeoutMs = context.getGameConfig().nodeTimeoutMs();
+
+        // чтобы не было ситуации pingDelay > timeout
+        int effectivePing = Math.max(1, Math.min(pingDelayMs, Math.max(1, timeoutMs / 2)));
 
         scheduler.scheduleAtFixedRate(() -> {
             try {
@@ -243,8 +264,9 @@ public class DeputyNode extends Node {
             } catch (Exception e) {
                 Logger.error("Error sending ping: {}", e.getMessage());
             }
-        }, pingDelayMs, pingDelayMs, TimeUnit.MILLISECONDS);
+        }, effectivePing, effectivePing, TimeUnit.MILLISECONDS);
     }
+
 
     private void sendPingToMaster() {
         InetSocketAddress masterAddr = context.getMasterAddress();

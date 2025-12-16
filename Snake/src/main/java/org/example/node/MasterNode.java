@@ -154,7 +154,7 @@ public class MasterNode extends Node {
     }
 
     private void startTimeoutChecker() {
-        int timeoutMs = (int) (0.8 * context.getGameConfig().stateDelayMs());
+        int timeoutMs = context.getGameConfig().nodeTimeoutMs();
         long checkInterval = Math.max(100, timeoutMs / 2L);
 
         Logger.info("Starting timeout checker: timeoutMs={}, checkInterval={}ms", timeoutMs, checkInterval);

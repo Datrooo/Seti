@@ -35,6 +35,7 @@ public class NormalNode extends Node {
         network.getDispatcher().onRoleChange(this::handleRoleChangeMessage);
         network.getDispatcher().onError(this::handleError);
         network.getDispatcher().onPing(this::handlePing);
+        network.getDispatcher().onAck(this::handleAck);
     }
     @Override
     protected void onStart() {
@@ -57,7 +58,7 @@ public class NormalNode extends Node {
         InetSocketAddress master = context.getMasterAddress();
         if (master == null) return;
 
-        int timeoutMs = (int) (0.8 * context.getGameConfig().stateDelayMs());
+        int timeoutMs = context.getGameConfig().nodeTimeoutMs();
         long elapsed = System.currentTimeMillis() - lastMasterActivity.get();
 
         if (elapsed <= timeoutMs) return;
@@ -105,6 +106,7 @@ public class NormalNode extends Node {
     }
 
     private void handleState(SnakesProto.GameMessage message, InetSocketAddress sender) {
+        if (!running) return;
         if (!message.hasState()) return;
 
         // FIX: активность мастера
@@ -122,12 +124,23 @@ public class NormalNode extends Node {
     }
 
     public void handlePing(SnakesProto.GameMessage message, InetSocketAddress sender) {
+        if (!running) return;
         if (sender.equals(context.getMasterAddress())) {
             lastMasterActivity.set(System.currentTimeMillis());
         }
         context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
         context.getNetworkManager().updatePeerActivity(sender);
     }
+
+    private void handleAck(SnakesProto.GameMessage message, InetSocketAddress sender) {
+        if (!running) return;
+
+        if (sender.equals(context.getMasterAddress())) {
+            lastMasterActivity.set(System.currentTimeMillis());
+        }
+        context.getNetworkManager().updatePeerActivity(sender);
+    }
+
 
 
     @Override
@@ -137,6 +150,7 @@ public class NormalNode extends Node {
 
     @Override
     public void handleRoleChange(NodeRole newRole, InetSocketAddress newMasterAddress) {
+        if (!running) return;
         Logger.info("Role changed from {} to {}", role, newRole);
         this.role = newRole;
         context.getLocalPlayer().setRole(newRole);
@@ -178,6 +192,7 @@ public class NormalNode extends Node {
 
 
     private void handleRoleChangeMessage(SnakesProto.GameMessage message, InetSocketAddress sender) {
+        if (!running) return;
         if (!message.hasRoleChange()) {
             return;
         }
