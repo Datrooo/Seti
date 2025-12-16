@@ -37,7 +37,7 @@ public class GameService {
 
         Logger.info("Creating new game: {}", gameName);
 
-        NetworkManager network = new NetworkManager(Config.DEFAULT_PORT);
+        NetworkManager network = new NetworkManager(0);
         network.start();
         this.networkManager.set(network);
 
@@ -73,7 +73,7 @@ public class GameService {
 
         Logger.info("Joining game: {}", announcement.getGameName());
 
-        NetworkManager network = new NetworkManager(Config.DEFAULT_PORT);
+        NetworkManager network = new NetworkManager(0);
         network.start();
         this.networkManager.set(network);
 

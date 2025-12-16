@@ -18,9 +18,11 @@ public class UdpTransport {
     private Selector selector;
     private final BlockingQueue<ReceivedPacket> receivedPackets;
     private volatile boolean running;
+    private int localPort;
 
     public UdpTransport(int port) {
         this.port = port;
+        this.localPort = -1;
         this.receivedPackets = new LinkedBlockingQueue<>();
         this.running = false;
     }
@@ -32,13 +34,14 @@ public class UdpTransport {
         channel = DatagramChannel.open();
         channel.configureBlocking(false);
         channel.socket().bind(new InetSocketAddress(port));
+        localPort = channel.socket().getLocalPort();
 
         selector = Selector.open();
         channel.register(selector, SelectionKey.OP_READ);
 
         running = true;
 
-        Logger.info("UDP Transport started on port {}", port);
+        Logger.info("UDP Transport started on port {}", localPort);
     }
 
     /**
@@ -134,7 +137,7 @@ public class UdpTransport {
     }
 
     public int getPort() {
-        return port;
+        return localPort;
     }
 
     /**
