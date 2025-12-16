@@ -88,4 +88,12 @@ public class NodeContext {
     public void setNodeChangeListener(NodeChangeListener listener) {
         this.nodeChangeListener = listener;
     }
+
+    public void requestNodeSwitch(NodeRole newRole) {
+        if (nodeChangeListener != null) {
+            nodeChangeListener.onNodeRoleChanged(newRole);
+        }
+    }
+
+
 }

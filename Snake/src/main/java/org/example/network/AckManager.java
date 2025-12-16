@@ -28,11 +28,36 @@ public class AckManager {
     /**
      * Регистрирует peer для отслеживания
      */
+    // AckManager.java
     public void registerPeer(InetSocketAddress address, int playerId) {
-        peers.putIfAbsent(address, new PeerInfo(address, playerId));
+        peers.compute(address, (addr, existingRaw) -> {
+            PeerInfo existing = (PeerInfo) existingRaw;
 
-        Logger.debug("Registered peer: {} with id {}", address, playerId);
+            if (existing == null) {
+                Logger.debug("Registered peer: {} with id {}", addr, playerId);
+                return new PeerInfo(addr, playerId);
+            }
+
+            int oldId = existing.getPlayerId();
+
+            // не ухудшаем: если уже знаем id, не перетираем на 0
+            if (playerId == 0 || oldId == playerId) {
+                return existing;
+            }
+
+            // апгрейд 0 -> realId, сохраняя pendingMessages
+            if (oldId == 0 && playerId != 0) {
+                PeerInfo upgraded = new PeerInfo(addr, playerId);
+                upgraded.getPendingMessages().putAll(existing.getPendingMessages());
+                Logger.debug("Upgraded peer {} id {} -> {}", addr, oldId, playerId);
+                return upgraded;
+            }
+
+            // иначе оставляем как есть
+            return existing;
+        });
     }
+
 
     /**
      * Удаляет peer

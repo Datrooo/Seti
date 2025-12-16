@@ -148,12 +148,14 @@ public class DeputyNode extends Node {
         registerPeersFromState(currentState);
         context.setMasterAddress(null);
         broadcastNewMaster();
+        // Сообщаем GameService переключить текущий node на MASTER
+        context.requestNodeSwitch(NodeRole.MASTER);
+
+// Останавливаем себя (GameService тоже вызовет stop(), но это безопасно)
         this.stop();
 
-        MasterNode masterNode = new MasterNode(context);
-        masterNode.start();
+        Logger.info("Successfully promoted to MASTER (requested GameService switch)");
 
-        Logger.info("Successfully promoted to MASTER");
     }
 
     private void handleRoleChangeMessage(SnakesProto.GameMessage message, InetSocketAddress sender) {
