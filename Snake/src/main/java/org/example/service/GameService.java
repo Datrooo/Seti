@@ -77,7 +77,7 @@ public class GameService {
         network.start();
         this.networkManager.set(network);
 
-        int tempPlayerId = IdGenerator.generatePlayerId();
+        int tempPlayerId = 0;
         Player localPlayer = new Player(
                 tempPlayerId,
                 playerName,

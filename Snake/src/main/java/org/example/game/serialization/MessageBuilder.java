@@ -119,7 +119,7 @@ public class MessageBuilder {
 
         return SnakesProto.GameMessage.newBuilder()
                 .setMsgSeq(IdGenerator.generateMessageSeq())
-                .setSenderId(senderId)
+                .setSenderId(0)
                 .setJoin(joinMsg)
                 .build();
     }
