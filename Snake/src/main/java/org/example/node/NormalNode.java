@@ -31,16 +31,17 @@ public class NormalNode extends Node {
     protected void registerMessageHandlers() {
         NetworkManager network = context.getNetworkManager();
 
-        network.getDispatcher().onState(this::handleState);
-        network.getDispatcher().onRoleChange(this::handleRoleChangeMessage);
-        network.getDispatcher().onError(this::handleError);
-        network.getDispatcher().onPing(this::handlePing);
-        network.getDispatcher().onAck(this::handleAck);
+        sub(network.getDispatcher().subscribeState(this::handleState));
+        sub(network.getDispatcher().subscribeRoleChange(this::handleRoleChangeMessage));
+        sub(network.getDispatcher().subscribeError(this::handleError));
+        sub(network.getDispatcher().subscribePing(this::handlePing));
+        sub(network.getDispatcher().subscribeAck(this::handleAck));
     }
+
     @Override
     protected void onStart() {
         startPingTask();
-        startMasterTimeoutChecker(); // FIX
+        startMasterTimeoutChecker();
         Logger.info("NormalNode started, master at {}", context.getMasterAddress());
     }
 
@@ -60,7 +61,6 @@ public class NormalNode extends Node {
 
         int timeoutMs = context.getGameConfig().nodeTimeoutMs();
         long elapsed = System.currentTimeMillis() - lastMasterActivity.get();
-
         if (elapsed <= timeoutMs) return;
 
         InetSocketAddress deputyAddr = resolveDeputyAddressFromState();
@@ -70,7 +70,6 @@ public class NormalNode extends Node {
             Logger.warn("Master timed out, but deputy is unknown (no state yet?)");
             return;
         }
-
         if (deputyAddr.equals(master)) return;
 
         Logger.warn("Master timed out ({}ms>{}ms), switching master {} -> deputy {}",
@@ -109,7 +108,6 @@ public class NormalNode extends Node {
         if (!running) return;
         if (!message.hasState()) return;
 
-        // FIX: активность мастера
         if (sender.equals(context.getMasterAddress())) {
             lastMasterActivity.set(System.currentTimeMillis());
         }
@@ -141,8 +139,6 @@ public class NormalNode extends Node {
         context.getNetworkManager().updatePeerActivity(sender);
     }
 
-
-
     @Override
     protected void onStop() {
         scheduler.shutdownNow();
@@ -151,6 +147,7 @@ public class NormalNode extends Node {
     @Override
     public void handleRoleChange(NodeRole newRole, InetSocketAddress newMasterAddress) {
         if (!running) return;
+
         Logger.info("Role changed from {} to {}", role, newRole);
         this.role = newRole;
         context.getLocalPlayer().setRole(newRole);
@@ -159,7 +156,6 @@ public class NormalNode extends Node {
             context.setMasterAddress(newMasterAddress);
         }
 
-        // ← ДОБАВЛЕНО: Уведомляем GameService о смене роли
         if (newRole == NodeRole.DEPUTY) {
             Logger.info("Promoted to DEPUTY, notifying GameService to switch node");
             if (context.getNodeChangeListener() != null) {
@@ -169,9 +165,7 @@ public class NormalNode extends Node {
     }
 
     public void steer(Direction direction) {
-        if (!running) {
-            return;
-        }
+        if (!running) return;
 
         InetSocketAddress masterAddr = context.getMasterAddress();
         if (masterAddr == null) {
@@ -190,7 +184,6 @@ public class NormalNode extends Node {
         Logger.debug("Sent steer: {}", direction);
     }
 
-
     private void handleRoleChangeMessage(SnakesProto.GameMessage message, InetSocketAddress sender) {
         if (!running) return;
         if (!message.hasRoleChange()) return;
@@ -199,40 +192,31 @@ public class NormalNode extends Node {
         int myIdBefore = context.getLocalPlayer().getId();
         int receiverId = message.getReceiverId();
         int masterId = message.getSenderId();
-
         SnakesProto.GameMessage.RoleChangeMsg rc = message.getRoleChange();
 
-        // 1) Это сообщение не мне? Тогда просто ACK (чтобы мастер не ретранслировал) и выходим.
         boolean isForMe = (myIdBefore == 0) || (myIdBefore == receiverId);
         if (!isForMe) {
             context.getNetworkManager().sendAck(message, sender, myIdBefore);
             return;
         }
 
-        // 2) Если это новый мастер — обновить masterAddress СРАЗУ (до handleRoleChange).
         if (rc.hasSenderRole() && rc.getSenderRole() == SnakesProto.NodeRole.MASTER) {
             InetSocketAddress oldMaster = context.getMasterAddress();
             context.setMasterAddress(sender);
             lastMasterActivity.set(System.currentTimeMillis());
-
-            // перенос pending на нового мастера
             context.getNetworkManager().redirectPeer(oldMaster, sender, masterId);
             Logger.info("New master: {}", sender);
         }
 
-        // 3) Принять назначение id только один раз: когда myId==0.
         if (myIdBefore == 0 && receiverId != 0) {
             Logger.info("Assigned playerId {} (was 0)", receiverId);
             context.getLocalPlayer().setId(receiverId);
         }
 
-        // 4) Зарегистрировать мастера (peer table) по senderId.
         context.getNetworkManager().registerPeer(sender, masterId);
 
-        // 5) Применить роль, если она есть.
         if (rc.hasReceiverRole()) {
             NodeRole newRole = StateSerializer.nodeRoleFromProto(rc.getReceiverRole());
-            // Важно: передаем sender как новый masterAddress
             handleRoleChange(newRole, sender);
         }
 
@@ -254,9 +238,7 @@ public class NormalNode extends Node {
 
     private void sendPingToMaster() {
         InetSocketAddress masterAddr = context.getMasterAddress();
-        if (masterAddr == null) {
-            return;
-        }
+        if (masterAddr == null) return;
 
         SnakesProto.GameMessage ping = MessageBuilder.createPing(
                 context.getLocalPlayer().getId(),

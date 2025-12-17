@@ -4,6 +4,8 @@ import org.example.protocol.SnakesProto;
 import org.example.util.Logger;
 
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Базовый класс для всех типов узлов
@@ -13,39 +15,50 @@ public abstract class Node {
     protected volatile NodeRole role;
     protected volatile boolean running;
 
+    // Новое: все подписки узла на MessageDispatcher
+    private final List<AutoCloseable> subscriptions = new ArrayList<>();
+
     public Node(NodeContext context, NodeRole role) {
         this.context = context;
         this.role = role;
         this.running = false;
     }
 
+    protected final void sub(AutoCloseable s) {
+        if (s != null) subscriptions.add(s);
+    }
+
     /**
      * Запускает узел
      */
     public void start() {
-        if (running) {
-            return;
-        }
+        if (running) return;
 
         running = true;
         registerMessageHandlers();
         onStart();
 
-        Logger.info("{} node started for player {}",
-                role, context.getLocalPlayer().getName());
+        Logger.info("{} node started for player {}", role, context.getLocalPlayer().getName());
     }
 
     /**
      * Останавливает узел
      */
     public void stop() {
-        if (!running) {
-            return;
-        }
+        if (!running) return;
 
         running = false;
-        onStop();
 
+        // Новое: отписываемся от всех обработчиков узла
+        for (AutoCloseable s : subscriptions) {
+            try {
+                s.close();
+            } catch (Exception ignored) {
+            }
+        }
+        subscriptions.clear();
+
+        onStop();
         Logger.info("{} node stopped", role);
     }
 

@@ -8,6 +8,12 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BiConsumer;
 
 public class MessageDispatcher {
+
+    public interface Subscription extends AutoCloseable {
+        @Override
+        void close();
+    }
+
     private final CopyOnWriteArrayList<BiConsumer<SnakesProto.GameMessage, InetSocketAddress>> pingHandlers;
     private final CopyOnWriteArrayList<BiConsumer<SnakesProto.GameMessage, InetSocketAddress>> steerHandlers;
     private final CopyOnWriteArrayList<BiConsumer<SnakesProto.GameMessage, InetSocketAddress>> ackHandlers;
@@ -42,17 +48,11 @@ public class MessageDispatcher {
         discoverHandlers.clear();
     }
 
-
-    /**
-     * Обрабатывает входящее сообщение и направляет его соответствующим обработчикам
-     */
     public void dispatch(byte[] data, InetSocketAddress sender) {
         try {
             SnakesProto.GameMessage message = SnakesProto.GameMessage.parseFrom(data);
-
             Logger.debug("Dispatching message seq={} from {}", message.getMsgSeq(), sender);
 
-            // Определяем тип сообщения и вызываем соответствующие обработчики
             if (message.hasPing()) {
                 notifyHandlers(pingHandlers, message, sender);
             } else if (message.hasSteer()) {
@@ -74,7 +74,6 @@ public class MessageDispatcher {
             } else {
                 Logger.warn("Unknown message type from {}", sender);
             }
-
         } catch (Exception e) {
             Logger.error("Failed to parse message from {}: {}", sender, e.getMessage());
         }
@@ -83,8 +82,8 @@ public class MessageDispatcher {
     private void notifyHandlers(
             CopyOnWriteArrayList<BiConsumer<SnakesProto.GameMessage, InetSocketAddress>> handlers,
             SnakesProto.GameMessage message,
-            InetSocketAddress sender) {
-
+            InetSocketAddress sender
+    ) {
         for (BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler : handlers) {
             try {
                 handler.accept(message, sender);
@@ -94,7 +93,53 @@ public class MessageDispatcher {
         }
     }
 
-    // Методы для регистрации обработчиков
+    // --- New API with unsubscribe tokens ---
+
+    private Subscription subscribe(
+            CopyOnWriteArrayList<BiConsumer<SnakesProto.GameMessage, InetSocketAddress>> list,
+            BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler
+    ) {
+        list.add(handler);
+        return () -> list.remove(handler);
+    }
+
+    public Subscription subscribePing(BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler) {
+        return subscribe(pingHandlers, handler);
+    }
+
+    public Subscription subscribeSteer(BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler) {
+        return subscribe(steerHandlers, handler);
+    }
+
+    public Subscription subscribeAck(BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler) {
+        return subscribe(ackHandlers, handler);
+    }
+
+    public Subscription subscribeState(BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler) {
+        return subscribe(stateHandlers, handler);
+    }
+
+    public Subscription subscribeAnnouncement(BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler) {
+        return subscribe(announcementHandlers, handler);
+    }
+
+    public Subscription subscribeJoin(BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler) {
+        return subscribe(joinHandlers, handler);
+    }
+
+    public Subscription subscribeError(BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler) {
+        return subscribe(errorHandlers, handler);
+    }
+
+    public Subscription subscribeRoleChange(BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler) {
+        return subscribe(roleChangeHandlers, handler);
+    }
+
+    public Subscription subscribeDiscover(BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler) {
+        return subscribe(discoverHandlers, handler);
+    }
+
+    // --- Backward compatible old API (kept so project compiles) ---
 
     public void onPing(BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler) {
         pingHandlers.add(handler);
