@@ -193,47 +193,51 @@ public class NormalNode extends Node {
 
     private void handleRoleChangeMessage(SnakesProto.GameMessage message, InetSocketAddress sender) {
         if (!running) return;
-        if (!message.hasRoleChange()) {
+        if (!message.hasRoleChange()) return;
+        if (!message.hasReceiverId()) return;
+
+        int myIdBefore = context.getLocalPlayer().getId();
+        int receiverId = message.getReceiverId();
+        int masterId = message.getSenderId();
+
+        SnakesProto.GameMessage.RoleChangeMsg rc = message.getRoleChange();
+
+        // 1) Это сообщение не мне? Тогда просто ACK (чтобы мастер не ретранслировал) и выходим.
+        boolean isForMe = (myIdBefore == 0) || (myIdBefore == receiverId);
+        if (!isForMe) {
+            context.getNetworkManager().sendAck(message, sender, myIdBefore);
             return;
         }
 
-        SnakesProto.GameMessage.RoleChangeMsg roleChange = message.getRoleChange();
-
-        Logger.info("Received RoleChange from {}", sender);
-
-        if (message.hasReceiverId()) {
-            int receiverId = message.getReceiverId();
-
-            if (context.getLocalPlayer().getId() != receiverId) {
-                Logger.info("Updating player ID from {} to {}",
-                        context.getLocalPlayer().getId(), receiverId);
-                context.getLocalPlayer().setId(receiverId);
-            }
-
-            int masterId = message.getSenderId();
-            context.getNetworkManager().registerPeer(sender, masterId);
-            Logger.info("Registered master {} with id {}", sender, masterId);
-
-            if (roleChange.hasReceiverRole()) {
-                NodeRole newRole = StateSerializer.nodeRoleFromProto(roleChange.getReceiverRole());
-                handleRoleChange(newRole, context.getMasterAddress());
-            }
-        }
-
-        if (roleChange.hasSenderRole() && roleChange.getSenderRole() == SnakesProto.NodeRole.MASTER) {
-            InetSocketAddress old = context.getMasterAddress();
+        // 2) Если это новый мастер — обновить masterAddress СРАЗУ (до handleRoleChange).
+        if (rc.hasSenderRole() && rc.getSenderRole() == SnakesProto.NodeRole.MASTER) {
+            InetSocketAddress oldMaster = context.getMasterAddress();
             context.setMasterAddress(sender);
             lastMasterActivity.set(System.currentTimeMillis());
 
-            // FIX: перенос pending на нового мастера
-            context.getNetworkManager().redirectPeer(old, sender, message.getSenderId());
+            // перенос pending на нового мастера
+            context.getNetworkManager().redirectPeer(oldMaster, sender, masterId);
             Logger.info("New master: {}", sender);
+        }
+
+        // 3) Принять назначение id только один раз: когда myId==0.
+        if (myIdBefore == 0 && receiverId != 0) {
+            Logger.info("Assigned playerId {} (was 0)", receiverId);
+            context.getLocalPlayer().setId(receiverId);
+        }
+
+        // 4) Зарегистрировать мастера (peer table) по senderId.
+        context.getNetworkManager().registerPeer(sender, masterId);
+
+        // 5) Применить роль, если она есть.
+        if (rc.hasReceiverRole()) {
+            NodeRole newRole = StateSerializer.nodeRoleFromProto(rc.getReceiverRole());
+            // Важно: передаем sender как новый masterAddress
+            handleRoleChange(newRole, sender);
         }
 
         context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
         context.getNetworkManager().updatePeerActivity(sender);
-
-        Logger.info("Role assignment complete, starting normal operations");
     }
 
     private void startPingTask() {

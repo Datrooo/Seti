@@ -132,29 +132,30 @@ public class DeputyNode extends Node {
                     break;
                 }
             }
-            //context.getNetworkManager().unregisterPeer(oldMasterAddr);
-            Logger.info("Removed dead master peer {}", oldMasterAddr);
+            Logger.info("Old master assumed dead: {}", oldMasterAddr);
         }
 
+        // Роль локально
         context.getLocalPlayer().setRole(NodeRole.MASTER);
 
+        // 1) Восстановить движок один раз (без registerPeersFromState на старом NM)
         if (context.getGameEngine() == null && currentState != null) {
             Logger.info("Creating GameEngine with current state");
             GameEngine gameEngine = new GameEngine(context.getGameConfig());
             gameEngine.setGameState(currentState);
             context.setGameEngine(gameEngine);
 
-            registerPeersFromState(currentState);
-
-            // FIX: старый мастер -> ZOMBIE, не setAlive(false)
             if (oldMasterId != null) {
                 Snake deadSnake = gameEngine.getGameState().getSnakeByPlayerId(oldMasterId);
                 if (deadSnake != null && deadSnake.isAlive()) {
                     deadSnake.setState(Snake.SnakeState.ZOMBIE);
                     context.getGameEngine().removePlayer(oldMasterId);
-                    Logger.info("Removed old master player {} from game state", oldMasterId);                }
+                    Logger.info("Removed old master player {} from game state", oldMasterId);
+                }
             }
         }
+
+        // 2) Ребинд сети на фиксированный порт мастера
         NetworkManager oldNm = context.getNetworkManager();
         oldNm.stop();
 
@@ -162,19 +163,23 @@ public class DeputyNode extends Node {
         newNm.start();
         context.setNetworkManager(newNm);
 
-
+        // 3) Теперь регистрируем peers уже в НОВОМ NM
         registerPeersFromState(currentState);
+
+        // 4) Мастер больше не "имеет мастера"
         context.setMasterAddress(null);
+
+        // 5) Рассылка о новом мастере
         broadcastNewMaster();
-        // Сообщаем GameService переключить текущий node на MASTER
+
+        // 6) Переключить node через GameService
         context.requestNodeSwitch(NodeRole.MASTER);
 
-// Останавливаем себя (GameService тоже вызовет stop(), но это безопасно)
+        // Останавливаем себя (старый DEPUTY)
         this.stop();
-
         Logger.info("Successfully promoted to MASTER (requested GameService switch)");
-
     }
+
 
     private void handleRoleChangeMessage(SnakesProto.GameMessage message, InetSocketAddress sender) {
         if (!running) return;
@@ -218,14 +223,13 @@ public class DeputyNode extends Node {
                     myId,
                     peer.getPlayerId(),
                     NodeRole.MASTER,
-                    null
+                    NodeRole.NORMAL      // ВАЖНО
             );
-
             network.sendWithAck(roleChange, peer.getAddress());
         }
-
         Logger.info("Broadcasted new master role to all players");
     }
+
 
     public void steer(Direction direction) {
         if (!running) {

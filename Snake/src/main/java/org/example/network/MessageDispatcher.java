@@ -30,6 +30,19 @@ public class MessageDispatcher {
         this.discoverHandlers = new CopyOnWriteArrayList<>();
     }
 
+    public void resetAllHandlers() {
+        pingHandlers.clear();
+        steerHandlers.clear();
+        ackHandlers.clear();
+        stateHandlers.clear();
+        announcementHandlers.clear();
+        joinHandlers.clear();
+        errorHandlers.clear();
+        roleChangeHandlers.clear();
+        discoverHandlers.clear();
+    }
+
+
     /**
      * Обрабатывает входящее сообщение и направляет его соответствующим обработчикам
      */

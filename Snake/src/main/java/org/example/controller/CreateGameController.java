@@ -37,7 +37,6 @@ public class CreateGameController {
         String gameName = gameNameField.getText().trim();
         String playerName = playerNameField.getText().trim();
 
-        // Валидация
         if (gameName.isEmpty()) {
             showError("Game name cannot be empty");
             return;
@@ -49,33 +48,27 @@ public class CreateGameController {
         }
 
         try {
-            // Создаем конфигурацию
             GameConfig config = new GameConfig(
                     widthSpinner.getValue(),
                     heightSpinner.getValue(),
                     foodStaticSpinner.getValue(),
-                    1, // foodPerPlayer
+                    1,
                     stateDelaySpinner.getValue(),
-                    0.1f, // deadFoodProb
-                    1000, // pingDelayMs
-                    3000  // nodeTimeoutMs
+                    0.1f,
+                    1000,
+                    3000
             );
 
-            // Создаем игру
             gameService.createGame(gameName, playerName, config);
 
             Logger.info("Game created: {}", gameName);
 
-            // Закрываем диалог создания игры
             Stage createDialog = (Stage) gameNameField.getScene().getWindow();
 
-            // Открываем игровое окно
             openGameWindow();
 
-            // Закрываем главное меню (находим его)
             closeMainMenu();
 
-            // Закрываем диалог
             createDialog.close();
 
         } catch (Exception e) {
