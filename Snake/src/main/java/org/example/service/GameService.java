@@ -190,27 +190,25 @@ public class GameService {
         if (oldNode == null) return;
 
         Logger.info("Switching node from {} to {}", oldNode.getRole(), newRole);
-
-        // Останавливаем старый узел
         oldNode.stop();
 
-        // Сбрасываем все handlers, иначе они накапливаются
         NodeContext context = nodeContext.get();
         NetworkManager network = context.getNetworkManager();
-        //network.getDispatcher().resetAllHandlers();
 
-        // Восстанавливаем системный ACK-handler (иначе sendWithAck сломается)
+        network.getDispatcher().resetAllHandlers(); // включить обратно
+
+        // системный ack-хендлер (ровно один раз после reset)
         network.getDispatcher().onAck((msg, sender) ->
                 network.getAckManager().handleAck(msg.getMsgSeq(), sender)
         );
 
-        // Создаем и стартуем новый узел
         Node newNode = createNodeByRole(context, newRole);
         newNode.start();
         currentNode.set(newNode);
 
         Logger.info("Node switched successfully to {}", newRole);
     }
+
 
 
     public void leaveGame() {
