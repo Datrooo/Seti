@@ -79,24 +79,23 @@ public class GameController {
         gameLoop.start();
     }
 
+    private int lastRenderedOrder = -1;
+
     private void updateUI() {
-        if (gameService == null || !gameService.isActive()) {
-            return;
-        }
+        if (gameService == null || !gameService.isActive()) return;
 
         GameState state = gameService.getGameState();
-        if (state == null) {
-            return;
-        }
+        if (state == null) return;
 
+        int order = state.getStateOrder();
+        if (order == lastRenderedOrder) return;
+        lastRenderedOrder = order;
 
         renderer.render(state);
-
-        Platform.runLater(() -> {
-            updateGameInfo(state);
-            updatePlayersTable(state);
-        });
+        updateGameInfo(state);
+        updatePlayersTable(state);
     }
+
 
 
     private void updateGameInfo(GameState state) {

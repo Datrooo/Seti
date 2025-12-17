@@ -197,7 +197,7 @@ public class GameService {
         // Сбрасываем все handlers, иначе они накапливаются
         NodeContext context = nodeContext.get();
         NetworkManager network = context.getNetworkManager();
-        network.getDispatcher().resetAllHandlers();
+        //network.getDispatcher().resetAllHandlers();
 
         // Восстанавливаем системный ACK-handler (иначе sendWithAck сломается)
         network.getDispatcher().onAck((msg, sender) ->
