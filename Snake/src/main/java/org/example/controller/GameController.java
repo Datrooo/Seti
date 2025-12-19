@@ -119,18 +119,33 @@ public class GameController {
     private void updatePlayersTable(GameState state) {
         playersTable.getItems().clear();
 
-        for (Player player : state.getPlayers()) {
+        for (Snake snake : state.getSnakes()) {
+            String playerName = "Unknown";
+
+            for (Player p : state.getPlayers()) {
+                if (p.getId() == snake.getPlayerId()) {
+                    playerName = p.getName();
+                    break;
+                }
+            }
+
+            String status = switch (snake.getState()) {
+                case ALIVE -> "🟢 Alive";
+                case ZOMBIE -> "💀 Zombie";
+                default -> "?";
+            };
+
             playersTable.getItems().add(new PlayerRow(
-                    player.getName(),
-                    player.getScore(),
-                    player.getRole().toString()
+                    playerName,
+                    snake.getLength() * 10,  // score = длина * 10 (или возьми real score)
+                    status
             ));
         }
     }
 
+
     @FXML private Button exitButton;
 
-    // ... остальной код ...
 
     @FXML
     private void onExitToMenu() {

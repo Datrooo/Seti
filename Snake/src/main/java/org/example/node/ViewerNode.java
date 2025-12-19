@@ -1,7 +1,6 @@
 package org.example.node;
 
 import org.example.game.model.GameState;
-import org.example.game.serialization.MessageBuilder;
 import org.example.game.serialization.StateSerializer;
 import org.example.network.NetworkManager;
 import org.example.protocol.SnakesProto;
@@ -11,37 +10,32 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class ViewerNode extends Node {
     private final ScheduledExecutorService scheduler;
+    private final AtomicLong lastMasterActivity = new AtomicLong(System.currentTimeMillis());
+    private static final long MASTER_CHECK_INTERVAL_MS = 200;
 
     public ViewerNode(NodeContext context) {
         super(context, NodeRole.VIEWER);
-        this.scheduler = Executors.newScheduledThreadPool(1);
+        this.scheduler = Executors.newScheduledThreadPool(2);
     }
 
     @Override
     protected void registerMessageHandlers() {
         NetworkManager network = context.getNetworkManager();
 
-        // Обработка State (только получение, не отправка)
-        network.getDispatcher().onState(this::handleState);
-
-        // Обработка RoleChange
-        network.getDispatcher().onRoleChange(this::handleRoleChangeMessage);
-
-        // Обработка Error
-        network.getDispatcher().onError(this::handleError);
-
-        // Обработка Ping
-        network.getDispatcher().onPing(this::handlePing);
+        sub(network.getDispatcher().subscribeState(this::handleState));
+        sub(network.getDispatcher().subscribeError(this::handleError));
+        sub(network.getDispatcher().subscribePing(this::handlePing));
+        sub(network.getDispatcher().subscribeAck(this::handleAck));
     }
 
     @Override
     protected void onStart() {
-        // Запускаем отправку Ping мастеру
         startPingTask();
-
+        startMasterTimeoutChecker();
         Logger.info("ViewerNode started, observing game at {}", context.getMasterAddress());
     }
 
@@ -52,6 +46,8 @@ public class ViewerNode extends Node {
 
     @Override
     public void handleRoleChange(NodeRole newRole, InetSocketAddress newMasterAddress) {
+        if (!running) return;
+
         Logger.info("Role changed from {} to {}", role, newRole);
         this.role = newRole;
         context.getLocalPlayer().setRole(newRole);
@@ -59,62 +55,71 @@ public class ViewerNode extends Node {
         if (newMasterAddress != null) {
             context.setMasterAddress(newMasterAddress);
         }
-
-        // Viewer обычно не меняет роль, но если это произошло...
-        if (newRole != NodeRole.VIEWER) {
-            Logger.info("Viewer role changed to {}, requires node recreation", newRole);
-        }
     }
 
-    /**
-     * Обработка StateMsg от мастера
-     */
     private void handleState(SnakesProto.GameMessage message, InetSocketAddress sender) {
-        if (!message.hasState()) {
-            return;
+        if (!running) return;
+        if (!message.hasState()) return;
+
+        if (sender.equals(context.getMasterAddress())) {
+            lastMasterActivity.set(System.currentTimeMillis());
         }
 
-        // Обновляем состояние игры (только для отображения)
+        // ВАЖНО: десериализовать state и сохранить в context
         GameState newState = StateSerializer.fromProto(
                 message.getState().getState(),
                 context.getGameConfig()
         );
 
-        if (context.getGameEngine() != null) {
-            context.getGameEngine().setGameState(newState);
-        }
+        // ← это критично для viewer'а!
+        context.setCurrentState(newState);
 
-        // Отправляем ACK
         context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
         context.getNetworkManager().updatePeerActivity(sender);
 
         Logger.debug("Viewer received state order={}", newState.getStateOrder());
     }
 
-    /**
-     * Обработка RoleChangeMsg
-     */
-    private void handleRoleChangeMessage(SnakesProto.GameMessage message, InetSocketAddress sender) {
-        if (!message.hasRoleChange()) {
-            return;
+    protected void handlePing(SnakesProto.GameMessage message, InetSocketAddress sender) {
+        if (!running) return;
+        if (sender.equals(context.getMasterAddress())) {
+            lastMasterActivity.set(System.currentTimeMillis());
         }
-
-        SnakesProto.GameMessage.RoleChangeMsg roleChange = message.getRoleChange();
-
-        // Если отправитель становится мастером, обновляем адрес
-        if (roleChange.hasSenderRole() &&
-                roleChange.getSenderRole() == SnakesProto.NodeRole.MASTER) {
-            context.setMasterAddress(sender);
-            Logger.info("New master for viewer: {}", sender);
-        }
-
-        // Отправляем ACK
         context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
+        context.getNetworkManager().updatePeerActivity(sender);
     }
 
-    /**
-     * Периодическая отправка Ping мастеру (чтобы нас не отключили)
-     */
+    private void handleAck(SnakesProto.GameMessage message, InetSocketAddress sender) {
+        if (!running) return;
+        if (sender.equals(context.getMasterAddress())) {
+            lastMasterActivity.set(System.currentTimeMillis());
+        }
+        context.getNetworkManager().updatePeerActivity(sender);
+    }
+
+    private void startMasterTimeoutChecker() {
+        scheduler.scheduleAtFixedRate(() -> {
+            try {
+                checkMasterTimeout();
+            } catch (Exception e) {
+                Logger.error("Error checking master timeout: {}", e.getMessage(), e);
+            }
+        }, MASTER_CHECK_INTERVAL_MS, MASTER_CHECK_INTERVAL_MS, TimeUnit.MILLISECONDS);
+    }
+
+    private void checkMasterTimeout() {
+        InetSocketAddress master = context.getMasterAddress();
+        if (master == null) return;
+
+        int timeoutMs = context.getGameConfig().nodeTimeoutMs();
+        long elapsed = System.currentTimeMillis() - lastMasterActivity.get();
+
+        if (elapsed > timeoutMs) {
+            Logger.warn("Master timed out for viewer, disconnecting");
+            // Viewer может просто отписаться или оставить старое состояние
+        }
+    }
+
     private void startPingTask() {
         int pingDelayMs = context.getGameConfig().pingDelayMs();
 
@@ -129,11 +134,9 @@ public class ViewerNode extends Node {
 
     private void sendPingToMaster() {
         InetSocketAddress masterAddr = context.getMasterAddress();
-        if (masterAddr == null) {
-            return;
-        }
+        if (masterAddr == null) return;
 
-        SnakesProto.GameMessage ping = MessageBuilder.createPing(
+        SnakesProto.GameMessage ping = org.example.game.serialization.MessageBuilder.createPing(
                 context.getLocalPlayer().getId(),
                 0
         );
