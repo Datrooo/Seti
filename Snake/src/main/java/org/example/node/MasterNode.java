@@ -256,9 +256,21 @@ public class MasterNode extends Node {
         );
 
         context.getNetworkManager().registerPeer(sender, newPlayerId);
-        gameEngine.addPlayer(newPlayer);
 
-        Logger.info("Player {} joined the game as {} with ID {}", joinMsg.getPlayerName(), requestedRole, newPlayerId);
+        // ← НОВОЕ: не добавляем VIEWER в игру (и не создаём Snake для него)
+        if (requestedRole != NodeRole.VIEWER) {
+            gameEngine.addPlayer(newPlayer);
+            Logger.info("Player {} joined the game as {} with ID {}",
+                    joinMsg.getPlayerName(), requestedRole, newPlayerId);
+
+            if (context.getDeputyAddress() == null) {
+                selectDeputy();
+            }
+        } else {
+            // VIEWER просто получает текущий state, но не появляется в игре
+            Logger.info("Viewer {} connected with ID {} (not added to game)",
+                    joinMsg.getPlayerName(), newPlayerId);
+        }
 
         context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
 
@@ -271,11 +283,8 @@ public class MasterNode extends Node {
         context.getNetworkManager().sendWithAck(roleChange, sender);
 
         Logger.info("Sent role assignment to {}: role={}, id={}", sender, requestedRole, newPlayerId);
-
-        if (context.getDeputyAddress() == null) {
-            selectDeputy();
-        }
     }
+
 
     private void handleDiscover(SnakesProto.GameMessage message, InetSocketAddress sender) {
         announceGame();
