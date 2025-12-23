@@ -157,33 +157,62 @@ public class MulticastDiscovery {
     private NetworkInterface getNetworkInterface() throws SocketException {
         Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
         
-        // Приоритет 1: Ищем активные не-loopback интерфейсы с IPv4
+        NetworkInterface fallbackInterface = null;
+        
+        // Приоритет 1: Ищем реальные сетевые интерфейсы (Wi-Fi/Ethernet), исключаем VPN
         while (interfaces.hasMoreElements()) {
             NetworkInterface iface = interfaces.nextElement();
-            if (!iface.isLoopback() && iface.isUp() && iface.supportsMulticast()) {
+            String name = iface.getName().toLowerCase();
+            
+            // Пропускаем loopback и виртуальные/VPN интерфейсы
+            if (iface.isLoopback() || 
+                name.startsWith("utun") || 
+                name.startsWith("awdl") || 
+                name.startsWith("llw") ||
+                name.startsWith("bridge") ||
+                name.startsWith("tun") ||
+                name.startsWith("tap")) {
+                continue;
+            }
+            
+            if (iface.isUp() && iface.supportsMulticast()) {
                 // Проверяем наличие IPv4 адресов
                 Enumeration<InetAddress> addresses = iface.getInetAddresses();
                 while (addresses.hasMoreElements()) {
                     InetAddress addr = addresses.nextElement();
                     if (addr instanceof java.net.Inet4Address && !addr.isLoopbackAddress()) {
-                        Logger.info("Found suitable interface: {} with IPv4: {}", 
-                                iface.getDisplayName(), addr.getHostAddress());
+                        Logger.info("Found suitable interface: {} ({}) with IPv4: {}", 
+                                iface.getDisplayName(), iface.getName(), addr.getHostAddress());
                         return iface;
                     }
+                }
+                
+                // Сохраняем как fallback, даже если нет IPv4
+                if (fallbackInterface == null) {
+                    fallbackInterface = iface;
                 }
             }
         }
         
-        // Приоритет 2: Любой multicast интерфейс
+        // Приоритет 2: Используем fallback интерфейс если есть
+        if (fallbackInterface != null) {
+            Logger.warn("Using fallback interface: {} ({})", 
+                    fallbackInterface.getDisplayName(), fallbackInterface.getName());
+            return fallbackInterface;
+        }
+        
+        // Приоритет 3: Loopback для локального тестирования
         interfaces = NetworkInterface.getNetworkInterfaces();
         while (interfaces.hasMoreElements()) {
             NetworkInterface iface = interfaces.nextElement();
-            if (iface.isUp() && iface.supportsMulticast()) {
-                Logger.warn("Using fallback interface: {}", iface.getDisplayName());
+            if (iface.isLoopback() && iface.isUp() && iface.supportsMulticast()) {
+                Logger.warn("Using loopback interface: {} ({})", 
+                        iface.getDisplayName(), iface.getName());
                 return iface;
             }
         }
         
+        Logger.warn("No suitable network interface found for multicast");
         return null;
     }
 

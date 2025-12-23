@@ -8943,3 +8943,26 @@ java.net.BindException: Address already in use
 2025-12-24 05:47:09.162 [JavaFX Application Thread] INFO  SnakesGame - Exiting to main menu
 2025-12-24 05:47:09.175 [] INFO  SnakesGame - Multicast listen loop stopped
 2025-12-24 05:47:10.261 [JavaFX Application Thread] INFO  SnakesGame - Exiting application
+2025-12-24 06:05:22.584 [JavaFX Application Thread] INFO  SnakesGame - Starting Snakes Application
+2025-12-24 06:05:24.054 [JavaFX Application Thread] INFO  SnakesGame - Opening Lobby
+2025-12-24 06:05:24.096 [JavaFX Application Thread] INFO  SnakesGame - Looking for suitable multicast interface...
+2025-12-24 06:05:24.098 [JavaFX Application Thread] INFO  SnakesGame - Found suitable interface: en0 with IPv4: 172.20.10.4
+2025-12-24 06:05:24.099 [JavaFX Application Thread] INFO  SnakesGame - Joined multicast group using interface: en0 (en0)
+2025-12-24 06:05:24.099 [JavaFX Application Thread] INFO  SnakesGame - Set multicast send interface to: en0 (en0)
+2025-12-24 06:05:24.101 [JavaFX Application Thread] INFO  SnakesGame - Multicast discovery started on 239.192.0.4:9192
+2025-12-24 06:05:24.101 [] INFO  SnakesGame - Multicast listen loop started
+2025-12-24 06:05:24.101 [JavaFX Application Thread] INFO  SnakesGame - Discovery service started
+2025-12-24 06:05:24.101 [JavaFX Application Thread] INFO  SnakesGame - Discovery started in lobby
+2025-12-24 06:05:39.829 [JavaFX Application Thread] INFO  SnakesGame - Found suitable interface: en0 with IPv4: 172.20.10.4
+2025-12-24 06:05:39.831 [JavaFX Application Thread] INFO  SnakesGame - Multicast discovery stopped
+2025-12-24 06:05:39.831 [JavaFX Application Thread] INFO  SnakesGame - Discovery service stopped
+2025-12-24 06:05:39.832 [] INFO  SnakesGame - Multicast listen loop stopped
+2025-12-24 06:06:32.142 [JavaFX Application Thread] INFO  SnakesGame - Opening Lobby
+2025-12-24 06:06:32.150 [JavaFX Application Thread] INFO  SnakesGame - Looking for suitable multicast interface...
+2025-12-24 06:06:32.151 [JavaFX Application Thread] INFO  SnakesGame - Found suitable interface: utun4 with IPv4: 198.18.0.1
+2025-12-24 06:06:32.151 [JavaFX Application Thread] INFO  SnakesGame - Joined multicast group using interface: utun4 (utun4)
+2025-12-24 06:06:32.151 [JavaFX Application Thread] INFO  SnakesGame - Set multicast send interface to: utun4 (utun4)
+2025-12-24 06:06:32.151 [JavaFX Application Thread] INFO  SnakesGame - Multicast discovery started on 239.192.0.4:9192
+2025-12-24 06:06:32.151 [] INFO  SnakesGame - Multicast listen loop started
+2025-12-24 06:06:32.151 [JavaFX Application Thread] INFO  SnakesGame - Discovery service started
+2025-12-24 06:06:32.152 [JavaFX Application Thread] INFO  SnakesGame - Discovery started in lobby
