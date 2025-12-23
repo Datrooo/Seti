@@ -155,28 +155,40 @@ public class MulticastDiscovery {
     }
 
     private NetworkInterface getNetworkInterface() throws SocketException {
+        // 0) Явное указание интерфейса через системное свойство или переменную окружения
+        String override = System.getProperty("snakes.multicast.if", System.getenv("SNAKES_MULTICAST_IF"));
+        if (override != null && !override.isBlank()) {
+            NetworkInterface forced = NetworkInterface.getByName(override.trim());
+            if (forced != null && forced.isUp() && forced.supportsMulticast()) {
+                Logger.warn("Using user-specified multicast interface: {} ({})", forced.getDisplayName(), forced.getName());
+                return forced;
+            } else {
+                Logger.warn("User-specified interface '{}' not usable (up={}, multicast={})", override,
+                        forced != null && forced.isUp(), forced != null && forced.supportsMulticast());
+            }
+        }
+
         Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
-        
         NetworkInterface fallbackInterface = null;
-        
-        // Приоритет 1: Ищем реальные сетевые интерфейсы (Wi-Fi/Ethernet), исключаем VPN
+
+        // Приоритет 1: реальные сетевые интерфейсы (Wi-Fi/Ethernet), исключаем VPN/виртуальные
         while (interfaces.hasMoreElements()) {
             NetworkInterface iface = interfaces.nextElement();
             String name = iface.getName().toLowerCase();
-            
-            // Пропускаем loopback и виртуальные/VPN интерфейсы
-            if (iface.isLoopback() || 
-                name.startsWith("utun") || 
-                name.startsWith("awdl") || 
-                name.startsWith("llw") ||
-                name.startsWith("bridge") ||
-                name.startsWith("tun") ||
-                name.startsWith("tap")) {
+            String display = iface.getDisplayName() != null ? iface.getDisplayName().toLowerCase() : name;
+
+            boolean isLikelyVpn = name.contains("vpn") || display.contains("vpn") ||
+                    name.startsWith("utun") || name.startsWith("tap") || name.startsWith("tun") ||
+                    display.contains("radmin") || display.contains("hamachi") ||
+                    display.contains("tunnel") || display.contains("virtual") ||
+                    display.contains("vbox") || display.contains("vmnet") || display.contains("wg") ||
+                    name.startsWith("awdl") || name.startsWith("llw") || name.startsWith("bridge");
+
+            if (iface.isLoopback() || isLikelyVpn || iface.isPointToPoint() || iface.isVirtual()) {
                 continue;
             }
-            
+
             if (iface.isUp() && iface.supportsMulticast()) {
-                // Проверяем наличие IPv4 адресов
                 Enumeration<InetAddress> addresses = iface.getInetAddresses();
                 while (addresses.hasMoreElements()) {
                     InetAddress addr = addresses.nextElement();
@@ -186,21 +198,20 @@ public class MulticastDiscovery {
                         return iface;
                     }
                 }
-                
-                // Сохраняем как fallback, даже если нет IPv4
+
                 if (fallbackInterface == null) {
                     fallbackInterface = iface;
                 }
             }
         }
-        
-        // Приоритет 2: Используем fallback интерфейс если есть
+
+        // Приоритет 2: fallback интерфейс (лучший из найденных non-loopback multicast)
         if (fallbackInterface != null) {
             Logger.warn("Using fallback interface: {} ({})", 
                     fallbackInterface.getDisplayName(), fallbackInterface.getName());
             return fallbackInterface;
         }
-        
+
         // Приоритет 3: Loopback для локального тестирования
         interfaces = NetworkInterface.getNetworkInterfaces();
         while (interfaces.hasMoreElements()) {
@@ -211,7 +222,7 @@ public class MulticastDiscovery {
                 return iface;
             }
         }
-        
+
         Logger.warn("No suitable network interface found for multicast");
         return null;
     }
