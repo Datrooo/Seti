@@ -15,6 +15,8 @@ public class GameRenderer {
     private final GraphicsContext gc;
     private final Map<Integer, Color> playerColors;
     private int cellSize;
+    private double offsetX;
+    private double offsetY;
 
     private static final Color BACKGROUND_COLOR = Color.rgb(44, 62, 80);
     private static final Color GRID_COLOR = Color.rgb(52, 73, 94);
@@ -32,7 +34,6 @@ public class GameRenderer {
             return;
         }
 
-        // Вычисляем размер клетки
         int fieldWidth = state.getConfig().width();
         int fieldHeight = state.getConfig().height();
 
@@ -41,17 +42,19 @@ public class GameRenderer {
 
         cellSize = (int) Math.min(canvasWidth / fieldWidth, canvasHeight / fieldHeight);
 
-        // Очищаем canvas
+        // Calculate actual field dimensions in pixels
+        double fieldPixelWidth = fieldWidth * cellSize;
+        double fieldPixelHeight = fieldHeight * cellSize;
+
+        // Center the field on the canvas
+        offsetX = (canvasWidth - fieldPixelWidth) / 2.0;
+        offsetY = (canvasHeight - fieldPixelHeight) / 2.0;
+
         gc.setFill(BACKGROUND_COLOR);
         gc.fillRect(0, 0, canvasWidth, canvasHeight);
 
-        // Рисуем сетку
         drawGrid(fieldWidth, fieldHeight);
-
-        // Рисуем еду
         drawFood(state);
-
-        // Рисуем змеек
         drawSnakes(state);
     }
 
@@ -59,14 +62,14 @@ public class GameRenderer {
         gc.setStroke(GRID_COLOR);
         gc.setLineWidth(1);
 
-        // Вертикальные линии
         for (int x = 0; x <= width; x++) {
-            gc.strokeLine(x * cellSize, 0, x * cellSize, height * cellSize);
+            double px = offsetX + x * cellSize;
+            gc.strokeLine(px, offsetY, px, offsetY + height * cellSize);
         }
 
-        // Горизонтальные линии
         for (int y = 0; y <= height; y++) {
-            gc.strokeLine(0, y * cellSize, width * cellSize, y * cellSize);
+            double py = offsetY + y * cellSize;
+            gc.strokeLine(offsetX, py, offsetX + width * cellSize, py);
         }
     }
 
@@ -83,18 +86,15 @@ public class GameRenderer {
             Color color = getPlayerColor(snake.getPlayerId());
 
             if (snake.isZombie()) {
-                // Зомби - полупрозрачные
                 color = Color.color(color.getRed(), color.getGreen(), color.getBlue(), 0.5);
             }
 
             gc.setFill(color);
 
-            // Рисуем тело змейки
             for (int i = 0; i < snake.getBody().size(); i++) {
                 Coord segment = snake.getBody().get(i);
                 drawCell(segment.x(), segment.y());
 
-                // Голова - ярче
                 if (i == 0) {
                     gc.setFill(color.brighter());
                     drawCell(segment.x(), segment.y());
@@ -106,8 +106,8 @@ public class GameRenderer {
 
     private void drawCell(int x, int y) {
         gc.fillRect(
-                x * cellSize + 1,
-                y * cellSize + 1,
+                offsetX + x * cellSize + 1,
+                offsetY + y * cellSize + 1,
                 cellSize - 2,
                 cellSize - 2
         );
@@ -115,8 +115,7 @@ public class GameRenderer {
 
     private Color getPlayerColor(int playerId) {
         return playerColors.computeIfAbsent(playerId, id -> {
-            // Генерируем цвет на основе ID
-            double hue = (id * 137.508) % 360; // Золотое сечение для распределения цветов
+            double hue = (id * 137.508) % 360;
             return Color.hsb(hue, 0.7, 0.9);
         });
     }

@@ -17,10 +17,6 @@ public class TorusField {
         this.random = new Random();
     }
 
-    public Coord wrap(Coord coord) {
-        return coord.wrap(width, height);
-    }
-
     public Coord getRandomEmptyCell(java.util.function.Predicate<Coord> isOccupied) {
         List<Coord> emptyCells = new ArrayList<>();
 
@@ -40,20 +36,10 @@ public class TorusField {
         return emptyCells.get(random.nextInt(emptyCells.size()));
     }
 
-    public boolean isValidCoord(Coord coord) {
-        return coord.x() >= 0 && coord.x() < width &&
-                coord.y() >= 0 && coord.y() < height;
-    }
-
     public int getWidth() {
         return width;
     }
-
     public int getHeight() {
         return height;
-    }
-
-    public int getTotalCells() {
-        return width * height;
     }
 }

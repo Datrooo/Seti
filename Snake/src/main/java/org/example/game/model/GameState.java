@@ -5,7 +5,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class GameState {
     private final GameConfig config;
-    private int stateOrder; // Номер состояния (увеличивается с каждым обновлением)
+    private int stateOrder; // Номер состояния
     private final Map<Integer, Snake> snakes; // playerId -> Snake
     private final Map<Integer, Player> players; // playerId -> Player
     private final Set<Coord> foods;
@@ -18,30 +18,22 @@ public class GameState {
         this.foods = Collections.synchronizedSet(new HashSet<>());
     }
 
-    // Глубокое копирование для безопасной передачи между потоками
-    // В GameState.java
-    // В GameState.java
     public GameState copy() {
         GameState copied = new GameState(config);
 
-        // ✅ Итерируем по values() Map'а
         for (Player player : this.players.values()) {
             copied.addPlayer(player);
         }
 
-        // ✅ Итерируем по values() Map'а
         for (Snake snake : this.snakes.values()) {
-            // Создаем копию змеи
-            Snake copiedSnake = snake.copy(); // Используем метод copy() класса Snake
+            Snake copiedSnake = snake.copy();
             copied.addSnake(copiedSnake);
         }
 
-        // Копируем еду
         for (Coord food : this.foods) {
             copied.addFood(food);
         }
 
-        // ✅ Копируем stateOrder
         copied.stateOrder = this.stateOrder;
 
         return copied;
@@ -74,7 +66,6 @@ public class GameState {
 
 
     public boolean isCellOccupied(Coord coord) {
-        // Проверяем, занята ли клетка телом змейки
         for (Snake snake : snakes.values()) {
             if (snake.contains(coord)) {
                 return true;
@@ -119,12 +110,6 @@ public class GameState {
         return players.size();
     }
 
-    public int getAlivePlayerCount() {
-        return (int) snakes.values().stream()
-                .filter(Snake::isAlive)
-                .count();
-    }
-
     public void setStateOrder(int order) {
         this.stateOrder = order;
     }
@@ -134,21 +119,6 @@ public class GameState {
         this.stateOrder++;
     }
 
-
-
-    // В GameState.java добавьте:
-
-    public void removeSnake(Snake snake) {
-        snakes.remove(snake.getPlayerId());
-    }
-
-    public Player getPlayerById(int playerId) {
-        return players.get(playerId);
-    }
-
-
-
-    // В GameState.java
     public Snake getSnakeByPlayerId(int playerId) {
         for (Snake snake : snakes.values()) {
             if (snake.getPlayerId() == playerId) {

@@ -130,6 +130,7 @@ public class DeputyNode extends Node {
         }
 
         context.getLocalPlayer().setRole(NodeRole.MASTER);
+        context.setDeputyAddress(null);
 
         if (context.getGameEngine() == null && currentState != null) {
             Logger.info("Creating GameEngine with current state");

@@ -23,7 +23,6 @@ public class CreateGameController {
 
     @FXML
     private void initialize() {
-        // Инициализируем spinners
         widthSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(10, 100, 40));
         heightSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(10, 100, 30));
         foodStaticSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(0, 100, 1));
@@ -58,17 +57,11 @@ public class CreateGameController {
                     1000,
                     3000
             );
-
             gameService.createGame(gameName, playerName, config);
-
             Logger.info("Game created: {}", gameName);
-
             Stage createDialog = (Stage) gameNameField.getScene().getWindow();
-
             openGameWindow();
-
             closeMainMenu();
-
             createDialog.close();
 
         } catch (Exception e) {
@@ -78,7 +71,6 @@ public class CreateGameController {
     }
 
     private void closeMainMenu() {
-        // Ищем главное меню среди открытых окон
         javafx.stage.Window.getWindows().stream()
                 .filter(window -> window instanceof Stage)
                 .map(window -> (Stage) window)
@@ -97,12 +89,13 @@ public class CreateGameController {
 
             Stage stage = new Stage();
             stage.setTitle("Snake Game - " + gameService.getLocalPlayer().getName());
-            stage.setScene(new Scene(root, 1000, 700));
+            Scene scene = new Scene(root, 1000, 700);
+            scene.getStylesheets().add(getClass().getResource("/css/styles.css").toExternalForm());
+            stage.setScene(scene);
             stage.setOnCloseRequest(event -> {
                 controller.stop();
                 gameService.leaveGame();
 
-                // При закрытии игры - открываем главное меню
                 openMainMenu();
             });
             stage.show();

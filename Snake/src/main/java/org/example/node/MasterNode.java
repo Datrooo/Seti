@@ -15,13 +15,25 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Главный узел (MASTER) в топологии "звезда".
+ * Отвечает за обработку игровой логики и синхронизацию состояния.
+ * 
+ * Реализует отслеживание msg_seq для SteerMsg согласно ТЗ:
+ * - Накапливает команды поворота от всех игроков
+ * - Более новая команда (с большим msg_seq) заменяет старую в пределах хода
+ * - Пример: игрок отправил LEFT (seq=10), потом RIGHT (seq=11) 
+ *   до смены хода → змейка повернет RIGHT
+ */
 public class MasterNode extends Node {
     private final ScheduledExecutorService scheduler;
     private GameEngine gameEngine;
+    private final java.util.concurrent.ConcurrentHashMap<Integer, Long> lastSteerSeq;
 
     public MasterNode(NodeContext context) {
         super(context, NodeRole.MASTER);
         this.scheduler = Executors.newScheduledThreadPool(3);
+        this.lastSteerSeq = new java.util.concurrent.ConcurrentHashMap<>();
 
         if (context.getGameEngine() == null) {
             Logger.info("Creating new GameEngine for new game");
@@ -50,6 +62,16 @@ public class MasterNode extends Node {
         sub(network.getDispatcher().subscribeDiscover(this::handleDiscover));
     }
 
+    private boolean hasDeputyInState() {
+        int myId = context.getLocalPlayer().getId();
+        for (Player p : gameEngine.getGameState().getPlayers()) {
+            if (p.getRole() == NodeRole.DEPUTY && p.getId() != myId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     protected void onStart() {
         if (context.getGameEngine() == null) {
@@ -75,6 +97,9 @@ public class MasterNode extends Node {
         context.setMasterAddress(null);
         bootstrapPeersFromState();
 
+        if (!hasDeputyInState()) {
+            selectDeputy();
+        }
         startGameLoop();
         startStateUpdates();
         startAnnouncements();
@@ -185,6 +210,9 @@ public class MasterNode extends Node {
     private void handlePlayerTimeout(PeerInfo peer) {
         Logger.warn("Player {} timed out, removing", peer.getPlayerId());
 
+        InetSocketAddress deputy = context.getDeputyAddress();
+        boolean wasDeputy = deputy != null && deputy.equals(peer.getAddress());
+
         Snake snake = gameEngine.getGameState().getSnakeByPlayerId(peer.getPlayerId());
         if (snake != null && snake.isAlive()) {
             snake.setState(Snake.SnakeState.ZOMBIE);
@@ -193,6 +221,16 @@ public class MasterNode extends Node {
 
         gameEngine.removePlayer(peer.getPlayerId());
         context.getNetworkManager().unregisterPeer(peer.getAddress());
+        
+        // Удаляем информацию о последнем steer seq
+        lastSteerSeq.remove(peer.getPlayerId());
+        
+        if (wasDeputy) {
+            Logger.warn("Deputy timed out, clearing deputyAddress");
+            context.setDeputyAddress(null);
+            selectDeputy();
+        }
+
     }
 
     @Override
@@ -207,8 +245,21 @@ public class MasterNode extends Node {
 
         Direction direction = StateSerializer.directionFromProto(message.getSteer().getDirection());
         int playerId = message.getSenderId();
+        long msgSeq = message.getMsgSeq();
 
+        // Проверяем msg_seq: принимаем только более новые сообщения
+        Long lastSeq = lastSteerSeq.get(playerId);
+        if (lastSeq != null && msgSeq <= lastSeq) {
+            Logger.debug("Ignoring old/duplicate steer from player {}: seq={} (last={})", playerId, msgSeq, lastSeq);
+            context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
+            context.getNetworkManager().updatePeerActivity(sender);
+            return;
+        }
+
+        // Сохраняем msg_seq и применяем команду
+        lastSteerSeq.put(playerId, msgSeq);
         gameEngine.handleSteer(playerId, direction);
+        Logger.debug("Accepted steer from player {}: direction={}, seq={}", playerId, direction, msgSeq);
 
         context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
         context.getNetworkManager().updatePeerActivity(sender);
@@ -218,7 +269,8 @@ public class MasterNode extends Node {
         if (!message.hasJoin()) return;
 
         SnakesProto.GameMessage.JoinMsg joinMsg = message.getJoin();
-        Logger.info("Received JOIN request from {} (player: {})", sender, joinMsg.getPlayerName());
+        Logger.info("[MASTER-JOIN] Received JOIN from {} (player: {}, msg_seq={})", 
+                sender, joinMsg.getPlayerName(), message.getMsgSeq());
 
         for (Player existingPlayer : gameEngine.getGameState().getPlayers()) {
             if (sender.equals(existingPlayer.getAddress())) {
@@ -257,22 +309,33 @@ public class MasterNode extends Node {
 
         context.getNetworkManager().registerPeer(sender, newPlayerId);
 
-        // ← НОВОЕ: не добавляем VIEWER в игру (и не создаём Snake для него)
         if (requestedRole != NodeRole.VIEWER) {
-            gameEngine.addPlayer(newPlayer);
-            Logger.info("Player {} joined the game as {} with ID {}",
-                    joinMsg.getPlayerName(), requestedRole, newPlayerId);
+            // Пытаемся добавить игрока и создать змейку
+            try {
+                gameEngine.addPlayer(newPlayer);
+                Logger.info("Player {} joined the game as {} with ID {}",
+                        joinMsg.getPlayerName(), requestedRole, newPlayerId);
 
-            if (context.getDeputyAddress() == null) {
-                selectDeputy();
+                if (context.getDeputyAddress() == null) {
+                    selectDeputy();
+                }
+            } catch (IllegalStateException e) {
+                // Не удалось найти подходящий квадрат 5x5
+                Logger.warn("Cannot place snake for {}: {}", joinMsg.getPlayerName(), e.getMessage());
+                context.getNetworkManager().unregisterPeer(sender);
+                sendError("Cannot place snake: no suitable 5x5 square found on the field", sender);
+                return;
             }
         } else {
-            // VIEWER просто получает текущий state, но не появляется в игре
-            Logger.info("Viewer {} connected with ID {} (not added to game)",
+            // Viewer не получает змейку
+            gameEngine.getGameState().addPlayer(newPlayer);
+            Logger.info("Viewer {} connected with ID {} (no snake created)",
                     joinMsg.getPlayerName(), newPlayerId);
         }
 
         context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
+        Logger.info("[MASTER-JOIN] Sent ACK for JOIN seq={} to {} (playerId={})", 
+                message.getMsgSeq(), sender, newPlayerId);
 
         SnakesProto.GameMessage roleChange = MessageBuilder.createRoleChange(
                 context.getLocalPlayer().getId(),
@@ -281,8 +344,11 @@ public class MasterNode extends Node {
                 requestedRole
         );
         context.getNetworkManager().sendWithAck(roleChange, sender);
+        Logger.info("[MASTER-JOIN] Sent RoleChange to {}: role={}, id={}, seq={}", 
+                sender, requestedRole, newPlayerId, roleChange.getMsgSeq());
 
-        Logger.info("Sent role assignment to {}: role={}, id={}", sender, requestedRole, newPlayerId);
+        Logger.info("[MASTER-JOIN] Sent RoleChange to {}: role={}, id={}, seq={}", 
+                sender, requestedRole, newPlayerId, roleChange.getMsgSeq());
     }
 
 

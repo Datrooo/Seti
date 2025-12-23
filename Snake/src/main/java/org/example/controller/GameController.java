@@ -1,7 +1,6 @@
 package org.example.controller;
 
 import javafx.animation.AnimationTimer;
-import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -38,12 +37,10 @@ public class GameController {
 
     @FXML
     private void initialize() {
-        // Настраиваем таблицу игроков
         playerNameColumn.setCellValueFactory(new PropertyValueFactory<>("name"));
         scoreColumn.setCellValueFactory(new PropertyValueFactory<>("score"));
         roleColumn.setCellValueFactory(new PropertyValueFactory<>("role"));
 
-        // Создаем renderer
         renderer = new GameRenderer(gameCanvas);
 
         Logger.info("GameController initialized");
@@ -53,11 +50,9 @@ public class GameController {
         this.gameService = gameService;
         this.inputService = new InputService(gameService);
 
-        // Регистрируем обработчик клавиатуры
         root.setOnKeyPressed(this::handleKeyPress);
         root.requestFocus();
 
-        // Запускаем игровой цикл отрисовки
         startGameLoop();
 
         Logger.info("GameService connected to GameController");
@@ -94,9 +89,6 @@ public class GameController {
         updateGameInfo(state);
         updatePlayersTable(state);
     }
-
-
-
 
     private void updateGameInfo(GameState state) {
         Player localPlayer = gameService.getLocalPlayer();
@@ -137,7 +129,7 @@ public class GameController {
 
             playersTable.getItems().add(new PlayerRow(
                     playerName,
-                    snake.getLength() * 10,  // score = длина * 10 (или возьми real score)
+                    snake.getLength() -2,
                     status
             ));
         }
@@ -149,7 +141,6 @@ public class GameController {
 
     @FXML
     private void onExitToMenu() {
-        // Показываем диалог подтверждения
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle("Exit to Menu");
         alert.setHeaderText("Are you sure you want to leave the game?");
@@ -164,23 +155,19 @@ public class GameController {
 
     private void exitToMainMenu() {
         try {
-            // Останавливаем игровой цикл
             if (gameLoop != null) {
                 gameLoop.stop();
             }
 
-            // Выходим из игры
             if (gameService != null) {
                 gameService.leaveGame();
             }
 
             Logger.info("Exiting to main menu");
 
-            // Загружаем главное меню
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/main-menu.fxml"));
             Parent root = loader.load();
 
-            // Получаем текущую Stage
             Stage stage = (Stage) exitButton.getScene().getWindow();
 
             Scene scene = new Scene(root, 800, 600);
@@ -210,7 +197,6 @@ public class GameController {
         }
     }
 
-    // Класс для отображения игрока в таблице
     public static class PlayerRow {
         private final String name;
         private final int score;

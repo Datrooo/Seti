@@ -28,9 +28,6 @@ public class NetworkManager {
         this.running = false;
     }
 
-    /**
-     * Запускает все сетевые компоненты
-     */
     public void start() throws IOException {
         transport.start();
         discovery.start();
@@ -56,7 +53,7 @@ public class NetworkManager {
             }
         });
 
-        // Запускаем проверку таймаутов и ретрансмиссий
+        // Запускаем проверку таймаутов
         executorService.submit(() -> {
             while (running) {
                 try {
@@ -79,9 +76,6 @@ public class NetworkManager {
         Logger.info("NetworkManager started successfully");
     }
 
-    /**
-     * Останавливает все сетевые компоненты
-     */
     public void stop() {
         running = false;
 
@@ -92,59 +86,36 @@ public class NetworkManager {
         Logger.info("NetworkManager stopped");
     }
 
-    /**
-     * Отправляет сообщение без требования подтверждения
-     */
     public void send(SnakesProto.GameMessage message, InetSocketAddress destination) {
         byte[] data = message.toByteArray();
         transport.send(data, destination);
     }
 
-    /**
-     * Отправляет сообщение с требованием подтверждения
-     */
     public void sendWithAck(SnakesProto.GameMessage message, InetSocketAddress destination) {
         ackManager.sendWithAck(message, destination);
     }
 
-    /**
-     * Отправляет ACK на полученное сообщение
-     */
     public void sendAck(SnakesProto.GameMessage originalMessage, InetSocketAddress destination, int myPlayerId) {
         ackManager.sendAck(originalMessage, destination, myPlayerId);
     }
 
-    /**
-     * Регистрирует peer
-     */
     public void registerPeer(InetSocketAddress address, int playerId) {
         ackManager.registerPeer(address, playerId);
-        // Сразу обновляем активность
         ackManager.updatePeerActivity(address);
     }
 
-    /**
-     * Удаляет peer
-     */
     public void unregisterPeer(InetSocketAddress address) {
         ackManager.unregisterPeer(address);
     }
 
-    /**
-     * Обновляет активность peer'а
-     */
     public void updatePeerActivity(InetSocketAddress address) {
         ackManager.updatePeerActivity(address);
     }
 
-    /**
-     * Проверяет таймауты peer'ов
-     */
     public void checkPeerTimeouts(long timeoutMs, Consumer<PeerInfo> onTimeout) {
         ackManager.checkPeerTimeouts(timeoutMs, onTimeout);
     }
 
-    // ДОБАВЬТЕ ЭТОТ МЕТОД:
     public List<PeerInfo> getAllPeers() {
         return ackManager.getAllPeers();
     }
@@ -155,44 +126,10 @@ public class NetworkManager {
         ackManager.redirectPeer(from, to);
     }
 
-
-
-
-    // Делегирование методов диспетчера
-
     public MessageDispatcher getDispatcher() {
         return dispatcher;
     }
 
-    public AckManager getAckManager() {
-        return ackManager;
-    }
-
-    public UdpTransport getTransport() {
-        return transport;
-    }
-
-    public boolean isRunning() {
-        return running;
-    }
-
-    /**
-     * Подписка на объявления об играх
-     */
-    public void addAnnouncementListener(Consumer<MulticastDiscovery.AnnouncementWithAddress> listener) {
-        discovery.addAnnouncementListener(listener);
-    }
-
-    /**
-     * Получает MulticastDiscovery
-     */
-    public MulticastDiscovery getMulticastDiscovery() {
-        return discovery;
-    }
-
-    /**
-     * Отправляет multicast announcement об игре
-     */
     public void announceGame(SnakesProto.GameMessage announcement) {
         if (discovery != null) {
             discovery.sendAnnouncement(announcement);

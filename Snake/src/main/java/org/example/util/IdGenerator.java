@@ -19,11 +19,4 @@ public class IdGenerator {
         playerIdCounter.set(nextId);
     }
 
-    public static void resetPlayerIds() {
-        playerIdCounter.set(1);
-    }
-
-    public static void resetMessageSeq() {
-        messageSeqCounter.set(0);
-    }
 }

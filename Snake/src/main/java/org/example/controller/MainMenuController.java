@@ -11,7 +11,7 @@ import org.example.util.Logger;
 
 public class MainMenuController {
 
-    @FXML private Button joinButton; // Добавили это
+    @FXML private Button joinButton;
 
     @FXML
     private void onCreateGame() {
@@ -23,7 +23,9 @@ public class MainMenuController {
 
             Stage stage = new Stage();
             stage.setTitle("Create New Game");
-            stage.setScene(new Scene(root, 400, 500));
+            Scene scene = new Scene(root, 400, 500);
+            scene.getStylesheets().add(getClass().getResource("/css/styles.css").toExternalForm());
+            stage.setScene(scene);
             stage.show();
 
         } catch (Exception e) {
@@ -40,10 +42,10 @@ public class MainMenuController {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/lobby.fxml"));
             Parent root = loader.load();
 
-            // Теперь можем получить Stage через joinButton
             Stage stage = (Stage) joinButton.getScene().getWindow();
 
             Scene scene = new Scene(root, 800, 600);
+            scene.getStylesheets().add(getClass().getResource("/css/styles.css").toExternalForm());
             stage.setScene(scene);
             stage.setTitle("Game Lobby");
 

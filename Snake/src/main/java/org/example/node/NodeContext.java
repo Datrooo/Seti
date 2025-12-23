@@ -15,7 +15,7 @@ public class NodeContext {
     private final GameConfig gameConfig;
     private GameEngine gameEngine;
     private InetSocketAddress masterAddress;
-    private InetSocketAddress deputyAddress;  // ← ДОБАВЛЕНО
+    private InetSocketAddress deputyAddress;
     private volatile GameState currentState;
     private NodeChangeListener nodeChangeListener;
 
@@ -26,7 +26,7 @@ public class NodeContext {
         this.gameConfig = gameConfig;
         this.gameEngine = null;
         this.masterAddress = null;
-        this.deputyAddress = null;  // ← ДОБАВЛЕНО
+        this.deputyAddress = null;
         this.currentState = null;
         this.nodeChangeListener = null;
     }
@@ -63,12 +63,10 @@ public class NodeContext {
         this.masterAddress = masterAddress;
     }
 
-    // ← ДОБАВЛЕНО
     public InetSocketAddress getDeputyAddress() {
         return deputyAddress;
     }
 
-    // ← ДОБАВЛЕНО
     public void setDeputyAddress(InetSocketAddress deputyAddress) {
         this.deputyAddress = deputyAddress;
     }

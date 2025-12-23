@@ -7,15 +7,12 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Базовый класс для всех типов узлов
- */
+
 public abstract class Node {
     protected final NodeContext context;
     protected volatile NodeRole role;
     protected volatile boolean running;
 
-    // Новое: все подписки узла на MessageDispatcher
     private final List<AutoCloseable> subscriptions = new ArrayList<>();
 
     public Node(NodeContext context, NodeRole role) {
@@ -28,9 +25,6 @@ public abstract class Node {
         if (s != null) subscriptions.add(s);
     }
 
-    /**
-     * Запускает узел
-     */
     public void start() {
         if (running) return;
 
@@ -41,15 +35,11 @@ public abstract class Node {
         Logger.info("{} node started for player {}", role, context.getLocalPlayer().getName());
     }
 
-    /**
-     * Останавливает узел
-     */
     public void stop() {
         if (!running) return;
 
         running = false;
 
-        // Новое: отписываемся от всех обработчиков узла
         for (AutoCloseable s : subscriptions) {
             try {
                 s.close();
@@ -62,38 +52,21 @@ public abstract class Node {
         Logger.info("{} node stopped", role);
     }
 
-    /**
-     * Регистрирует обработчики сообщений
-     */
     protected abstract void registerMessageHandlers();
 
-    /**
-     * Вызывается при запуске узла
-     */
+
     protected abstract void onStart();
 
-    /**
-     * Вызывается при остановке узла
-     */
     protected abstract void onStop();
 
-    /**
-     * Обрабатывает изменение роли
-     */
     public abstract void handleRoleChange(NodeRole newRole, InetSocketAddress newMasterAddress);
 
-    /**
-     * Обрабатывает Ping сообщение
-     */
     protected void handlePing(SnakesProto.GameMessage message, InetSocketAddress sender) {
         Logger.debug("Received PING from {}", sender);
         context.getNetworkManager().updatePeerActivity(sender);
         context.getNetworkManager().sendAck(message, sender, context.getLocalPlayer().getId());
     }
 
-    /**
-     * Обрабатывает Error сообщение
-     */
     protected void handleError(SnakesProto.GameMessage message, InetSocketAddress sender) {
         if (message.hasError()) {
             String errorMsg = message.getError().getErrorMessage();
@@ -102,22 +75,11 @@ public abstract class Node {
         }
     }
 
-    /**
-     * Вызывается при получении ошибки
-     */
     protected void onError(String errorMessage) {
-        // Переопределяется в подклассах
     }
 
     public NodeRole getRole() {
         return role;
     }
 
-    public boolean isRunning() {
-        return running;
-    }
-
-    public NodeContext getContext() {
-        return context;
-    }
 }

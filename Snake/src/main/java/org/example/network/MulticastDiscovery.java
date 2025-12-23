@@ -10,9 +10,6 @@ import java.util.Enumeration;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
-/**
- * Multicast UDP для обнаружения игр
- */
 public class MulticastDiscovery {
     private final String multicastAddress;
     private final int multicastPort;
@@ -30,21 +27,50 @@ public class MulticastDiscovery {
 
     public void start() throws IOException {
         socket = new MulticastSocket(multicastPort);
+        socket.setReuseAddress(true);
+        socket.setTimeToLive(255); // TTL для multicast (255 = максимальный, для работы через loopback)
         group = InetAddress.getByName(multicastAddress);
-
+        
+        Logger.info("Looking for suitable multicast interface...");
+        
         // Присоединяемся к multicast группе
+        NetworkInterface useInterface = null;
         try {
             NetworkInterface networkInterface = getNetworkInterface();
-            socket.joinGroup(new InetSocketAddress(group, multicastPort), networkInterface);
+            if (networkInterface != null) {
+                socket.joinGroup(new InetSocketAddress(group, multicastPort), networkInterface);
+                useInterface = networkInterface;
+                Logger.info("Joined multicast group using interface: {} ({})", 
+                        networkInterface.getDisplayName(), networkInterface.getName());
+            } else {
+                // Нет подходящего интерфейса, пробуем loopback
+                Logger.warn("No suitable network interface found, trying loopback");
+                useInterface = NetworkInterface.getByInetAddress(InetAddress.getLoopbackAddress());
+                socket.joinGroup(new InetSocketAddress(group, 0), useInterface);
+                Logger.info("Joined multicast group using loopback interface");
+            }
         } catch (Exception e) {
-            socket.joinGroup(group);
+            // Последний fallback - без указания интерфейса
+            Logger.warn("Failed to join with specific interface, trying default: {}", e.getMessage());
+            try {
+                useInterface = NetworkInterface.getByInetAddress(InetAddress.getLoopbackAddress());
+                socket.joinGroup(new InetSocketAddress(group, 0), useInterface);
+                Logger.info("Joined multicast group using loopback fallback");
+            } catch (Exception e2) {
+                socket.joinGroup(new InetSocketAddress(group, 0), null);
+                Logger.info("Joined multicast group using system default");
+            }
         }
-
+        
+        // Устанавливаем интерфейс для отправки multicast
+        if (useInterface != null) {
+            socket.setNetworkInterface(useInterface);
+            Logger.info("Set multicast send interface to: {} ({})", 
+                    useInterface.getDisplayName(), useInterface.getName());
+        }
+        
         running = true;
-
-        // Запускаем поток прослушивания
         Thread.ofVirtual().start(this::listenLoop);
-
         Logger.info("Multicast discovery started on {}:{}", multicastAddress, multicastPort);
     }
 
@@ -55,20 +81,25 @@ public class MulticastDiscovery {
             if (socket != null && group != null) {
                 try {
                     NetworkInterface networkInterface = getNetworkInterface();
-                    socket.leaveGroup(new InetSocketAddress(group, multicastPort), networkInterface);
-                } catch (Exception e) {
-                    socket.leaveGroup(group);
+                    if (networkInterface != null) {
+                        socket.leaveGroup(new InetSocketAddress(group, multicastPort), networkInterface);
+                    } else {
+                        socket.leaveGroup(new InetSocketAddress(group, 0), null);
+                    }
+                } catch (IOException e) {
+                    Logger.debug("Error leaving multicast group: {}", e.getMessage());
                 }
                 socket.close();
             }
             Logger.info("Multicast discovery stopped");
-        } catch (IOException e) {
+        } catch (Exception e) {
             Logger.error("Error stopping multicast discovery: {}", e.getMessage());
         }
     }
 
     private void listenLoop() {
         byte[] buffer = new byte[65536];
+        Logger.info("Multicast listen loop started");
 
         while (running) {
             try {
@@ -81,16 +112,20 @@ public class MulticastDiscovery {
                 // Получаем адрес отправителя
                 InetSocketAddress senderAddress = new InetSocketAddress(
                         packet.getAddress(),
-                        Config.DEFAULT_PORT // Порт игры, а не multicast порт
+                        Config.DEFAULT_PORT
                 );
 
-                // Парсим сообщение
+                Logger.debug("Received multicast packet from {} (actual port: {})", 
+                        packet.getAddress(), packet.getPort());
+
                 SnakesProto.GameMessage message = SnakesProto.GameMessage.parseFrom(data);
 
                 if (message.hasAnnouncement()) {
+                    Logger.debug("Received multicast announcement from {}", senderAddress);
                     for (SnakesProto.GameAnnouncement game :
                             message.getAnnouncement().getGamesList()) {
                         notifyListeners(game, senderAddress);
+                        Logger.info("Discovered game: {} from {}", game.getGameName(), senderAddress);
                     }
                 }
 
@@ -100,38 +135,13 @@ public class MulticastDiscovery {
                 }
             }
         }
-    }
-
-    /**
-     * Отправка multicast сообщения
-     */
-    public void send(SnakesProto.GameMessage message) {
-        if (socket == null || !running) {
-            return;
-        }
-
-        try {
-            byte[] data = message.toByteArray();
-            DatagramPacket packet = new DatagramPacket(
-                    data,
-                    data.length,
-                    group,
-                    multicastPort
-            );
-            socket.send(packet);
-            Logger.debug("Sent multicast announcement");
-        } catch (IOException e) {
-            Logger.error("Failed to send multicast: {}", e.getMessage());
-        }
+        Logger.info("Multicast listen loop stopped");
     }
 
     public void addAnnouncementListener(Consumer<AnnouncementWithAddress> listener) {
         listeners.add(listener);
     }
 
-    public void removeAnnouncementListener(Consumer<AnnouncementWithAddress> listener) {
-        listeners.remove(listener);
-    }
 
     private void notifyListeners(SnakesProto.GameAnnouncement announcement, InetSocketAddress senderAddress) {
         AnnouncementWithAddress data = new AnnouncementWithAddress(announcement, senderAddress);
@@ -146,18 +156,37 @@ public class MulticastDiscovery {
 
     private NetworkInterface getNetworkInterface() throws SocketException {
         Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+        
+        // Приоритет 1: Ищем активные не-loopback интерфейсы с IPv4
         while (interfaces.hasMoreElements()) {
             NetworkInterface iface = interfaces.nextElement();
             if (!iface.isLoopback() && iface.isUp() && iface.supportsMulticast()) {
+                // Проверяем наличие IPv4 адресов
+                Enumeration<InetAddress> addresses = iface.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    InetAddress addr = addresses.nextElement();
+                    if (addr instanceof java.net.Inet4Address && !addr.isLoopbackAddress()) {
+                        Logger.info("Found suitable interface: {} with IPv4: {}", 
+                                iface.getDisplayName(), addr.getHostAddress());
+                        return iface;
+                    }
+                }
+            }
+        }
+        
+        // Приоритет 2: Любой multicast интерфейс
+        interfaces = NetworkInterface.getNetworkInterfaces();
+        while (interfaces.hasMoreElements()) {
+            NetworkInterface iface = interfaces.nextElement();
+            if (iface.isUp() && iface.supportsMulticast()) {
+                Logger.warn("Using fallback interface: {}", iface.getDisplayName());
                 return iface;
             }
         }
-        return NetworkInterface.getByInetAddress(InetAddress.getLoopbackAddress());
+        
+        return null;
     }
 
-    /**
-     * Отправляет announcement в multicast группу
-     */
     public void sendAnnouncement(SnakesProto.GameMessage announcement) {
         if (socket == null || socket.isClosed()) {
             Logger.warn("Multicast socket not available, cannot send announcement");
@@ -174,18 +203,15 @@ public class MulticastDiscovery {
             );
 
             socket.send(packet);
-            Logger.debug("Sent multicast announcement");
+            Logger.info("Sent multicast announcement to {}:{} ({} bytes)", 
+                    group.getHostAddress(), multicastPort, data.length);
 
         } catch (IOException e) {
             Logger.error("Error sending multicast announcement: {}", e.getMessage());
         }
     }
 
-
-    /**
-     * Класс для передачи announcement с адресом отправителя
-     */
-    public record AnnouncementWithAddress(
+    public record AnnouncementWithAddress( // передача announcement с адресом отправителя
             SnakesProto.GameAnnouncement announcement,
             InetSocketAddress senderAddress
     ) {}

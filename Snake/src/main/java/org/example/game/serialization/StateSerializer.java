@@ -3,72 +3,49 @@ package org.example.game.serialization;
 import org.example.game.model.*;
 import org.example.node.NodeRole;
 import org.example.protocol.SnakesProto;
-import org.example.util.Logger;
 
 import java.net.InetSocketAddress;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class StateSerializer {
-
-    /**
-     * Конвертирует GameState в Protobuf StateMsg
-     */
-    public static SnakesProto.GameState toProto(GameState state) {
+    public static SnakesProto.GameState toProto(GameState state) { // Конвертирует GameState в Protobuf StateMsg
         SnakesProto.GameState.Builder builder = SnakesProto.GameState.newBuilder()
                 .setStateOrder(state.getStateOrder())
                 .setPlayers(playersToProto(state.getPlayers()));
 
-        // Конвертируем змеек
         for (Snake snake : state.getSnakes()) {
             builder.addSnakes(snakeToProto(snake));
         }
 
-        // Конвертируем еду
         for (Coord food : state.getFoods()) {
             builder.addFoods(coordToProto(food));
         }
-
         return builder.build();
     }
 
-    /**
-     * Конвертирует Protobuf GameState в доменную модель
-     */
-    // В StateSerializer.java
-    public static GameState fromProto(SnakesProto.GameState protoState, GameConfig config) {
+    public static GameState fromProto(SnakesProto.GameState protoState, GameConfig config) { // Конвертирует Protobuf GameState в GameState
         GameState gameState = new GameState(config);
 
-        // Добавляем игроков
         for (SnakesProto.GamePlayer protoPlayer : protoState.getPlayers().getPlayersList()) {
             Player player = playerFromProto(protoPlayer);
             gameState.addPlayer(player);
         }
 
-        // ✅ Добавляем змей с правильным статусом
         for (SnakesProto.GameState.Snake protoSnake : protoState.getSnakesList()) {
             Snake snake = snakeFromProto(protoSnake);
             gameState.addSnake(snake);
         }
 
-        // Добавляем еду
         for (SnakesProto.GameState.Coord protoFood : protoState.getFoodsList()) {
             Coord food = coordFromProto(protoFood);
             gameState.addFood(food);
         }
 
-        // ✅ Сохраняем stateOrder
         gameState.setStateOrder(protoState.getStateOrder());
 
         return gameState;
     }
 
-
-
-
-    /**
-     * Конвертирует GameConfig в Protobuf
-     */
     public static SnakesProto.GameConfig configToProto(GameConfig config) {
         return SnakesProto.GameConfig.newBuilder()
                 .setWidth(config.width())
@@ -82,9 +59,6 @@ public class StateSerializer {
                 .build();
     }
 
-    /**
-     * Конвертирует Protobuf GameConfig в доменную модель
-     */
     public static GameConfig configFromProto(SnakesProto.GameConfig protoConfig) {
         return new GameConfig(
                 protoConfig.hasWidth() ? protoConfig.getWidth() : 40,
@@ -98,21 +72,16 @@ public class StateSerializer {
         );
     }
 
-    // ========== Вспомогательные методы ==========
-
     private static SnakesProto.GameState.Snake snakeToProto(Snake snake) {
         SnakesProto.GameState.Snake.Builder builder = SnakesProto.GameState.Snake.newBuilder()
                 .setPlayerId(snake.getPlayerId())
                 .setHeadDirection(directionToProto(snake.getHeadDirection()))
                 .setState(snakeStateToProto(snake.getState()));
 
-        // Конвертируем координаты в относительные смещения
         List<Coord> body = snake.getBody();
         if (!body.isEmpty()) {
-            // Первая точка - абсолютные координаты головы
             builder.addPoints(coordToProtoAbsolute(body.get(0)));
 
-            // Остальные точки - относительные смещения
             for (int i = 1; i < body.size(); i++) {
                 Coord current = body.get(i);
                 Coord previous = body.get(i - 1);
@@ -125,39 +94,26 @@ public class StateSerializer {
         return builder.build();
     }
 
-    // В StateSerializer.java
     private static Snake snakeFromProto(SnakesProto.GameState.Snake protoSnake) {
-        // Извлекаем голову
         Coord head = coordFromProto(protoSnake.getPoints(0));
-
-        // Создаем змею
         Snake snake = new Snake(
                 protoSnake.getPlayerId(),
                 head,
                 directionFromProto(protoSnake.getHeadDirection())
         );
-
-        // Добавляем сегменты тела
         Coord current = head;
         for (int i = 1; i < protoSnake.getPointsCount(); i++) {
             SnakesProto.GameState.Coord protoPoint = protoSnake.getPoints(i);
             int dx = protoPoint.getX();
             int dy = protoPoint.getY();
             current = new Coord(current.x() + dx, current.y() + dy);
-            snake.getBodyInternal().add(current); // ← Используем getBodyInternal()
+            snake.getBodyInternal().add(current);
         }
-
-
-        // ✅ Используем setAlive()
         if (protoSnake.getState() == SnakesProto.GameState.Snake.SnakeState.ZOMBIE) {
             snake.setAlive(false);
         }
-
-
         return snake;
     }
-
-
 
     private static SnakesProto.GamePlayers playersToProto(Iterable<Player> players) {
         SnakesProto.GamePlayers.Builder builder = SnakesProto.GamePlayers.newBuilder();
@@ -165,7 +121,6 @@ public class StateSerializer {
         for (Player player : players) {
             builder.addPlayers(playerToProto(player));
         }
-
         return builder.build();
     }
 
@@ -176,7 +131,6 @@ public class StateSerializer {
                 .setRole(nodeRoleToProto(player.getRole()))
                 .setScore(player.getScore());
 
-        // Optional поля
         if (player.getAddress() != null) {
             builder.setIpAddress(player.getAddress().getAddress().getHostAddress());
             builder.setPort(player.getAddress().getPort());

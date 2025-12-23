@@ -11,9 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
-/**
- * Сервис для поиска доступных игр через multicast
- */
+// Сервис для поиска доступных игр через multicast
 public class DiscoveryService {
     private final MulticastDiscovery discovery;
     private final ConcurrentHashMap<String, GameInfo> availableGames;
@@ -29,29 +27,19 @@ public class DiscoveryService {
         this.active = false;
     }
 
-    /**
-     * Запускает поиск игр
-     */
     public void start() throws IOException {
         if (active) {
             return;
         }
-
         discovery.start();
-
-        // Подписываемся на объявления
         discovery.addAnnouncementListener(this::handleAnnouncement);
 
-        // Запускаем проверку устаревших игр
         startTimeoutChecker();
 
         active = true;
         Logger.info("Discovery service started");
     }
 
-    /**
-     * Останавливает поиск игр
-     */
     public void stop() {
         if (!active) {
             return;
@@ -64,9 +52,6 @@ public class DiscoveryService {
         Logger.info("Discovery service stopped");
     }
 
-    /**
-     * Обрабатывает полученное объявление об игре
-     */
     private void handleAnnouncement(MulticastDiscovery.AnnouncementWithAddress announcementWithAddress) {
         SnakesProto.GameAnnouncement announcement = announcementWithAddress.announcement();
         InetSocketAddress senderAddress = announcementWithAddress.senderAddress();
@@ -82,15 +67,11 @@ public class DiscoveryService {
             notifyGameAdded(gameInfo);
             Logger.info("Discovered new game: {} at {}", gameName, senderAddress);
         } else {
-            // Обновляем существующую игру
             gameInfo.update(announcement, senderAddress);
         }
     }
 
-    /**
-     * Проверяет устаревшие игры (не обновлялись > 5 секунд)
-     */
-    private void startTimeoutChecker() {
+    private void startTimeoutChecker() { // Проверяет устаревшие игры (не обновлялись > 5 секунд)
         Thread checker = Thread.ofVirtual().start(() -> {
             while (active) {
                 try {
@@ -105,7 +86,7 @@ public class DiscoveryService {
 
     private void checkTimeouts() {
         long now = System.currentTimeMillis();
-        long timeout = 5000; // 5 секунд
+        long timeout = 5000;
 
         availableGames.entrySet().removeIf(entry -> {
             GameInfo info = entry.getValue();
@@ -118,23 +99,11 @@ public class DiscoveryService {
         });
     }
 
-    /**
-     * Получает список доступных игр
-     */
-    public Map<String, GameInfo> getAvailableGames() {
-        return new ConcurrentHashMap<>(availableGames);
-    }
-
-    /**
-     * Добавляет слушателя на появление новых игр
-     */
     public void addGameAddedListener(Consumer<GameInfo> listener) {
         gameAddedListeners.add(listener);
     }
 
-    /**
-     * Добавляет слушателя на удаление игр
-     */
+
     public void addGameRemovedListener(Consumer<String> listener) {
         gameRemovedListeners.add(listener);
     }
@@ -159,14 +128,7 @@ public class DiscoveryService {
         }
     }
 
-    public boolean isActive() {
-        return active;
-    }
-
-    /**
-     * Информация об обнаруженной игре
-     */
-    public static class GameInfo {
+    public static class GameInfo { // Информация об обнаруженной игре
         private SnakesProto.GameAnnouncement announcement;
         private InetSocketAddress masterAddress;
         private long lastUpdate;

@@ -1,8 +1,8 @@
 package org.example.node;
 
 public enum NodeRole {
-    MASTER,   // Главный узел (управляет игрой)
-    DEPUTY,   // Заместитель (становится MASTER при отвале)
+    MASTER,   // Главный узел
+    DEPUTY,   // Заместитель
     NORMAL,   // Обычный игрок
-    VIEWER    // Наблюдатель (не играет)
+    VIEWER    // Наблюдатель
 }

@@ -15,9 +15,6 @@ public class FoodSpawner {
         this.random = new Random();
     }
 
-    /**
-     * Спавнит еду до нужного количества
-     */
     public void spawnFood(GameState state) {
         GameConfig config = state.getConfig();
         int requiredFood = config.getTotalFood(state.getPlayerCount());
@@ -38,9 +35,6 @@ public class FoodSpawner {
         }
     }
 
-    /**
-     * Генерирует еду из мертвой змейки с вероятностью deadFoodProb
-     */
     public void spawnFoodFromDeadSnake(GameState state, java.util.List<Coord> snakeBody) {
         float deadFoodProb = state.getConfig().deadFoodProb();
 

@@ -8,29 +8,22 @@ import java.util.concurrent.ConcurrentHashMap;
 public class PeerInfo {
     private final InetSocketAddress address;
     private final int playerId;
-    private long lastActivityTime; // Время последней активности
+    private long lastActivityTime;
     private final ConcurrentHashMap<Long, PendingMessage> pendingMessages;
 
     public PeerInfo(InetSocketAddress address, int playerId) {
         this.address = address;
         this.playerId = playerId;
-        this.lastActivityTime = System.currentTimeMillis(); // ← ВАЖНО! Устанавливаем сразу
+        this.lastActivityTime = System.currentTimeMillis();
         this.pendingMessages = new ConcurrentHashMap<>();
     }
 
-    /**
-     * Обновляет время последней активности
-     */
     public void updateActivity() {
         long oldTime = this.lastActivityTime;
         this.lastActivityTime = System.currentTimeMillis();
         Logger.debug("Peer {} activity updated: {} -> {}", address, oldTime, lastActivityTime);
     }
 
-
-    /**
-     * Проверяет, истёк ли таймаут
-     */
     public boolean isTimedOut(int timeoutMs) {
         long now = System.currentTimeMillis();
         long elapsed = now - lastActivityTime;
@@ -42,18 +35,11 @@ public class PeerInfo {
         return timedOut;
     }
 
-
-    /**
-     * Добавляет сообщение в очередь ожидания ACK
-     */
     public void addPendingMessage(long msgSeq, byte[] data) {
         pendingMessages.put(msgSeq, new PendingMessage(data));
     }
 
-    /**
-     * Удаляет сообщение из очереди (когда пришёл ACK)
-     */
-    public void removePendingMessage(long msgSeq) {
+    public void removePendingMessage(long msgSeq) { // когда пришел ack
         pendingMessages.remove(msgSeq);
     }
 
@@ -69,13 +55,6 @@ public class PeerInfo {
         return playerId;
     }
 
-    public long getLastActivityTime() {
-        return lastActivityTime;
-    }
-
-    /**
-     * Сообщение, ожидающее подтверждения
-     */
     public static class PendingMessage {
         private final byte[] data;
         private final long sentTime;

@@ -11,7 +11,6 @@ public class Player {
     private NodeRole role;
     private final PlayerType type;
     private int score;
-    private long lastActivityTime;
 
     public Player(int id, String name, InetSocketAddress address,
                   NodeRole role, PlayerType type) {
@@ -21,19 +20,10 @@ public class Player {
         this.role = role;
         this.type = type;
         this.score = 0;
-        this.lastActivityTime = System.currentTimeMillis();
     }
 
     public void incrementScore() {
         score++;
-    }
-
-    public void updateActivity() {
-        this.lastActivityTime = System.currentTimeMillis();
-    }
-
-    public boolean isTimedOut(int timeoutMs) {
-        return System.currentTimeMillis() - lastActivityTime > timeoutMs;
     }
 
     public int getId() {
@@ -66,10 +56,6 @@ public class Player {
 
     public void setScore(int score) {
         this.score = score;
-    }
-
-    public long getLastActivityTime() {
-        return lastActivityTime;
     }
 
     @Override

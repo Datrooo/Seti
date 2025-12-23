@@ -8,7 +8,6 @@
             xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="org.example.controller.LobbyController">
 
-    <!-- Верхняя панель -->
     <top>
         <VBox spacing="10" styleClass="info-panel">
             <padding>
@@ -19,7 +18,6 @@
         </VBox>
     </top>
 
-    <!-- Центральная часть - таблица игр -->
     <center>
         <TableView fx:id="gamesTable" styleClass="player-table">
             <columns>
@@ -31,7 +29,6 @@
         </TableView>
     </center>
 
-    <!-- Нижняя панель - параметры присоединения -->
     <bottom>
         <VBox spacing="15">
             <padding>

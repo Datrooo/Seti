@@ -8,9 +8,7 @@ import org.example.util.Logger;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Сервис для обработки пользовательского ввода
- */
+// Сервис для обработки пользовательского ввода
 public class InputService {
     private final GameService gameService;
     private final Map<KeyCode, Direction> keyBindings;
@@ -23,20 +21,14 @@ public class InputService {
         this.keyBindings = new HashMap<>();
         this.lastDirection = null;
         this.lastSteerTime = 0;
-
-        // Настройка привязок клавиш по умолчанию
         setupDefaultBindings();
     }
 
-    /**
-     * Настраивает привязки клавиш по умолчанию
-     */
     private void setupDefaultBindings() {
-        // Стрелки
-        keyBindings.put(KeyCode.UP, Direction.UP);
-        keyBindings.put(KeyCode.DOWN, Direction.DOWN);
-        keyBindings.put(KeyCode.LEFT, Direction.LEFT);
-        keyBindings.put(KeyCode.RIGHT, Direction.RIGHT);
+//        keyBindings.put(KeyCode.UP, Direction.UP);
+//        keyBindings.put(KeyCode.DOWN, Direction.DOWN);
+//        keyBindings.put(KeyCode.LEFT, Direction.LEFT);
+//        keyBindings.put(KeyCode.RIGHT, Direction.RIGHT);
 
         // WASD
         keyBindings.put(KeyCode.W, Direction.UP);
@@ -45,9 +37,6 @@ public class InputService {
         keyBindings.put(KeyCode.D, Direction.RIGHT);
     }
 
-    /**
-     * Обрабатывает нажатие клавиши
-     */
     public void handleKeyPressed(KeyEvent event) {
         KeyCode key = event.getCode();
         Direction direction = keyBindings.get(key);
@@ -57,13 +46,10 @@ public class InputService {
         }
 
         long currentTime = System.currentTimeMillis();
-
-        // Проверяем, не слишком ли часто отправляем команды
         if (currentTime - lastSteerTime < MIN_STEER_INTERVAL_MS) {
             return;
         }
 
-        // Не отправляем одно и то же направление подряд
         if (direction == lastDirection) {
             return;
         }
@@ -73,38 +59,5 @@ public class InputService {
         lastSteerTime = currentTime;
 
         Logger.debug("Steer command: {} -> {}", key, direction);
-    }
-
-    /**
-     * Сбрасывает последнее направление (для новой игры)
-     */
-    public void reset() {
-        lastDirection = null;
-        lastSteerTime = 0;
-    }
-
-    /**
-     * Устанавливает привязку клавиши к направлению
-     */
-    public void setKeyBinding(KeyCode key, Direction direction) {
-        keyBindings.put(key, direction);
-    }
-
-    /**
-     * Удаляет привязку клавиши
-     */
-    public void removeKeyBinding(KeyCode key) {
-        keyBindings.remove(key);
-    }
-
-    /**
-     * Очищает все привязки
-     */
-    public void clearBindings() {
-        keyBindings.clear();
-    }
-
-    public Map<KeyCode, Direction> getKeyBindings() {
-        return new HashMap<>(keyBindings);
     }
 }

@@ -27,9 +27,6 @@ public class UdpTransport {
         this.running = false;
     }
 
-    /**
-     * Инициализирует UDP сокет
-     */
     public void start() throws IOException {
         channel = DatagramChannel.open();
         channel.configureBlocking(false);
@@ -44,42 +41,26 @@ public class UdpTransport {
         Logger.info("UDP Transport started on port {}", localPort);
     }
 
-    /**
-     * Отправляет данные на указанный адрес
-     */
     public void send(byte[] data, InetSocketAddress destination) {
         try {
             ByteBuffer buffer = ByteBuffer.wrap(data);
             channel.send(buffer, destination);
-            Logger.debug("Sent {} bytes to {}", data.length, destination);
+            Logger.info("[UDP-SEND] {} bytes to {} (local port: {})", data.length, destination, localPort);
         } catch (IOException e) {
             Logger.error("Failed to send packet to {}: {}", destination, e.getMessage());
         }
     }
 
-    /**
-     * Получает пакет (неблокирующий)
-     */
     public ReceivedPacket receive() throws InterruptedException {
         return receivedPackets.take();
     }
 
-    /**
-     * Попытка получить пакет с таймаутом (в миллисекундах)
-     */
-    public ReceivedPacket receiveWithTimeout(long timeoutMs) throws InterruptedException {
-        return receivedPackets.poll(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS);
-    }
-
-    /**
-     * Получение пакетов из сокета (вызывать в отдельном потоке)
-     */
     public void receiveLoop() {
         ByteBuffer buffer = ByteBuffer.allocate(65536);
 
         while (running) {
             try {
-                int ready = selector.select(100); // Таймаут 100ms
+                int ready = selector.select(100);
 
                 if (ready == 0) {
                     continue;
@@ -101,7 +82,7 @@ public class UdpTransport {
                             buffer.get(data);
 
                             receivedPackets.offer(new ReceivedPacket(data, sender));
-                            Logger.debug("Received {} bytes from {}", data.length, sender);
+                            Logger.info("[UDP-RECV] {} bytes from {} (local port: {})", data.length, sender, localPort);
                         }
                     }
                 }
@@ -113,9 +94,6 @@ public class UdpTransport {
         }
     }
 
-    /**
-     * Останавливает транспорт
-     */
     public void stop() {
         running = false;
 
@@ -132,16 +110,9 @@ public class UdpTransport {
         }
     }
 
-    public boolean isRunning() {
-        return running;
-    }
-
     public int getPort() {
         return localPort;
     }
 
-    /**
-     * Класс для хранения полученного пакета с адресом отправителя
-     */
     public record ReceivedPacket(byte[] data, InetSocketAddress sender) {}
 }

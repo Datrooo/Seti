@@ -36,22 +36,25 @@ public class MessageDispatcher {
         this.discoverHandlers = new CopyOnWriteArrayList<>();
     }
 
-    public void resetAllHandlers() {
-        pingHandlers.clear();
-        steerHandlers.clear();
-        ackHandlers.clear();
-        stateHandlers.clear();
-        announcementHandlers.clear();
-        joinHandlers.clear();
-        errorHandlers.clear();
-        roleChangeHandlers.clear();
-        discoverHandlers.clear();
-    }
-
     public void dispatch(byte[] data, InetSocketAddress sender) {
         try {
             SnakesProto.GameMessage message = SnakesProto.GameMessage.parseFrom(data);
-            Logger.debug("Dispatching message seq={} from {}", message.getMsgSeq(), sender);
+            
+            String messageType = "UNKNOWN";
+            if (message.hasPing()) messageType = "PING";
+            else if (message.hasSteer()) messageType = "STEER";
+            else if (message.hasAck()) messageType = "ACK";
+            else if (message.hasState()) messageType = "STATE";
+            else if (message.hasAnnouncement()) messageType = "ANNOUNCEMENT";
+            else if (message.hasJoin()) messageType = "JOIN";
+            else if (message.hasError()) messageType = "ERROR";
+            else if (message.hasRoleChange()) messageType = "ROLE_CHANGE";
+            else if (message.hasDiscover()) messageType = "DISCOVER";
+            
+            Logger.info("[DISPATCH] {} seq={} from {} | sender_id={} receiver_id={}", 
+                    messageType, message.getMsgSeq(), sender,
+                    message.hasSenderId() ? message.getSenderId() : "none",
+                    message.hasReceiverId() ? message.getReceiverId() : "none");
 
             if (message.hasPing()) {
                 notifyHandlers(pingHandlers, message, sender);
@@ -93,8 +96,6 @@ public class MessageDispatcher {
         }
     }
 
-    // --- New API with unsubscribe tokens ---
-
     private Subscription subscribe(
             CopyOnWriteArrayList<BiConsumer<SnakesProto.GameMessage, InetSocketAddress>> list,
             BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler
@@ -119,10 +120,6 @@ public class MessageDispatcher {
         return subscribe(stateHandlers, handler);
     }
 
-    public Subscription subscribeAnnouncement(BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler) {
-        return subscribe(announcementHandlers, handler);
-    }
-
     public Subscription subscribeJoin(BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler) {
         return subscribe(joinHandlers, handler);
     }
@@ -139,41 +136,8 @@ public class MessageDispatcher {
         return subscribe(discoverHandlers, handler);
     }
 
-    // --- Backward compatible old API (kept so project compiles) ---
-
-    public void onPing(BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler) {
-        pingHandlers.add(handler);
-    }
-
-    public void onSteer(BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler) {
-        steerHandlers.add(handler);
-    }
-
     public void onAck(BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler) {
         ackHandlers.add(handler);
     }
 
-    public void onState(BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler) {
-        stateHandlers.add(handler);
-    }
-
-    public void onAnnouncement(BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler) {
-        announcementHandlers.add(handler);
-    }
-
-    public void onJoin(BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler) {
-        joinHandlers.add(handler);
-    }
-
-    public void onError(BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler) {
-        errorHandlers.add(handler);
-    }
-
-    public void onRoleChange(BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler) {
-        roleChangeHandlers.add(handler);
-    }
-
-    public void onDiscover(BiConsumer<SnakesProto.GameMessage, InetSocketAddress> handler) {
-        discoverHandlers.add(handler);
-    }
 }

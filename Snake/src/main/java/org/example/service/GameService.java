@@ -50,7 +50,6 @@ public class GameService {
 
         NodeContext context = new NodeContext(network, localPlayer, gameName, config);
 
-        // чтобы requestNodeSwitch работал и у хоста тоже (если понадобится)
         context.setNodeChangeListener(this::switchNode);
 
         this.nodeContext.set(context);
@@ -100,7 +99,6 @@ public class GameService {
         context.setMasterAddress(masterAddress);
         network.registerPeer(masterAddress, 0);
 
-        // listener для switchNode() при смене роли/промоуте
         context.setNodeChangeListener(this::switchNode);
 
         this.nodeContext.set(context);
@@ -115,6 +113,8 @@ public class GameService {
                 announcement.getGameName(),
                 requestedRole
         );
+        Logger.info("[CLIENT-JOIN] Sending JOIN to {} (player: {}, role: {}, seq: {})", 
+                masterAddress, playerName, requestedRole, joinMsg.getMsgSeq());
         network.sendWithAck(joinMsg, masterAddress);
 
         Logger.info("Join request sent to master at {}", masterAddress);
@@ -159,11 +159,6 @@ public class GameService {
         return context.getCurrentState();
     }
 
-    public GameConfig getGameConfig() {
-        NodeContext context = nodeContext.get();
-        return context != null ? context.getGameConfig() : null;
-    }
-
     public NodeContext getContext() {
         return nodeContext.get();
     }
@@ -178,7 +173,6 @@ public class GameService {
         return node != null ? node.getRole() : null;
     }
 
-    // ВАЖНО: под новую реализацию (ноды сами отписываются от dispatcher)
     public void switchNode(NodeRole newRole) {
         NodeContext context = nodeContext.get();
         if (context == null) return;
@@ -188,16 +182,12 @@ public class GameService {
 
         Logger.info("Switching node from {} to {}", oldNode.getRole(), newRole);
 
-        // stop() должен отписать свои handlers (через Subscription tokens)
         oldNode.stop();
-
-        // ВАЖНО: NetworkManager мог поменяться при promoteToMaster()
         this.networkManager.set(context.getNetworkManager());
 
         Node newNode = createNodeByRole(context, newRole);
         newNode.start();
         currentNode.set(newNode);
-
         Logger.info("Node switched successfully to {}", newRole);
     }
 
@@ -210,11 +200,10 @@ public class GameService {
         Node node = currentNode.get();
 
         if (node != null) {
-            // (опционально) уведомление мастера — лучше адресно на masterAddress
             if (context != null && context.getMasterAddress() != null) {
                 SnakesProto.GameMessage roleChange = MessageBuilder.createRoleChange(
                         context.getLocalPlayer().getId(),
-                        context.getLocalPlayer().getId(), // адресат = я (или можно 0, если вы так договорились)
+                        context.getLocalPlayer().getId(),
                         null,
                         NodeRole.VIEWER
                 );
@@ -229,24 +218,13 @@ public class GameService {
             context.getNetworkManager().stop();
         }
         networkManager.set(null);
-
         nodeContext.set(null);
         active = false;
-
         Logger.info("Left game successfully");
-    }
-
-    public void shutdown() {
-        leaveGame();
     }
 
     public boolean isActive() {
         return active;
-    }
-
-    public NetworkManager getNetworkManager() {
-        NodeContext ctx = nodeContext.get();
-        return (ctx != null) ? ctx.getNetworkManager() : networkManager.get();
     }
 
     private Node createNodeByRole(NodeContext context, NodeRole role) {

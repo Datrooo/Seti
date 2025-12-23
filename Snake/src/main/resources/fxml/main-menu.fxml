@@ -15,7 +15,7 @@
     </padding>
 
     <Label text="SNAKE GAME" styleClass="title"/>
-    <Label text="Multiplayer Edition" styleClass="subtitle"/>
+    <Label text="By Drakowkq" styleClass="subtitle"/>
 
     <VBox spacing="15" alignment="CENTER">
         <Button fx:id="createButton" text="Create Game" onAction="#onCreateGame"

@@ -13,7 +13,7 @@ public class SnakesApplication extends Application {
     public void start(Stage primaryStage) throws Exception {
         Logger.info("Starting Snakes Application");
 
-        // Загружаем главное меню
+        // Главное меню
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/main-menu.fxml"));
         Parent root = loader.load();
 

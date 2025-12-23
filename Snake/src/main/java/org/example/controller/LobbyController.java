@@ -37,7 +37,6 @@ public class LobbyController {
 
     @FXML
     private void initialize() {
-        // Настраиваем колонки таблицы
         nameColumn.setCellValueFactory(new PropertyValueFactory<>("name"));
         sizeColumn.setCellValueFactory(new PropertyValueFactory<>("size"));
         playersColumn.setCellValueFactory(new PropertyValueFactory<>("players"));
@@ -45,21 +44,18 @@ public class LobbyController {
 
         gamesTable.setItems(gamesList);
 
-        // Двойной клик для присоединения
         gamesTable.setOnMouseClicked(event -> {
             if (event.getClickCount() == 2) {
                 onJoin();
             }
         });
 
-        // Radio buttons
         ToggleGroup group = new ToggleGroup();
         playRadio.setToggleGroup(group);
         spectateRadio.setToggleGroup(group);
         playRadio.setSelected(true);
 
-        // Запускаем поиск игр
-        startDiscovery();
+        startDiscovery(); // поиск активных игр
     }
 
 
@@ -69,8 +65,6 @@ public class LobbyController {
         try {
             discoveryService.start();
 
-            // Подписываемся на появление новых игр
-            // Подписываемся на появление новых игр
             discoveryService.addGameAddedListener(game -> {
                 Platform.runLater(() -> {
                     GameInfo info = new GameInfo(
@@ -80,7 +74,7 @@ public class LobbyController {
                             game.canJoin() ? "Open" : "Full",
                             game.getAnnouncement()
                     );
-                    info.setMasterAddress(game.getMasterAddress()); // Устанавливаем адрес
+                    info.setMasterAddress(game.getMasterAddress());
                     gamesList.add(info);
                     Logger.info("Game added to lobby: {} at {}", game.getGameName(), game.getMasterAddress());
                 });
@@ -89,7 +83,7 @@ public class LobbyController {
             // Подписываемся на удаление игр
             discoveryService.addGameRemovedListener(gameName -> {
                 Platform.runLater(() -> {
-                    gamesList.removeIf(g -> g.getName().equals(gameName)); // ← ИСПРАВЛЕНО
+                    gamesList.removeIf(g -> g.getName().equals(gameName));
                     Logger.info("Game removed from lobby: {}", gameName);
                 });
             });
@@ -123,11 +117,9 @@ public class LobbyController {
         }
 
         try {
-            // Определяем роль
             NodeRole role = playRadio.isSelected() ? NodeRole.NORMAL : NodeRole.VIEWER;
 
-            // Получаем РЕАЛЬНЫЙ адрес мастера из discovery
-            InetSocketAddress masterAddress = selected.getMasterAddress(); // ← ИСПРАВЛЕНО
+            InetSocketAddress masterAddress = selected.getMasterAddress();
 
             if (masterAddress == null) {
                 showError("Cannot determine master address");
@@ -136,7 +128,6 @@ public class LobbyController {
 
             Logger.info("Connecting to master at {}", masterAddress);
 
-            // Создаем GameService и присоединяемся
             gameService = new GameService();
             gameService.joinGame(
                     selected.getAnnouncement(),
@@ -146,17 +137,9 @@ public class LobbyController {
             );
 
             Logger.info("Joined game: {}", selected.getName());
-
-            // Останавливаем discovery
             discoveryService.stop();
-
-            // Получаем текущее окно lobby
             Stage lobbyStage = (Stage) joinButton.getScene().getWindow();
-
-            // Открываем игровое окно
             openGameWindow();
-
-            // Закрываем lobby
             lobbyStage.close();
 
         } catch (Exception e) {
@@ -175,12 +158,13 @@ public class LobbyController {
 
             Stage stage = new Stage();
             stage.setTitle("Snake Game - " + gameService.getLocalPlayer().getName());
-            stage.setScene(new Scene(root, 1000, 700));
+            Scene scene = new Scene(root, 1000, 700);
+            scene.getStylesheets().add(getClass().getResource("/css/styles.css").toExternalForm());
+            stage.setScene(scene);
             stage.setOnCloseRequest(event -> {
                 controller.stop();
                 gameService.leaveGame();
 
-                // При закрытии игры - открываем главное меню
                 openMainMenu();
             });
             stage.show();
@@ -220,7 +204,9 @@ public class LobbyController {
             Parent root = loader.load();
 
             Stage stage = (Stage) backButton.getScene().getWindow();
-            stage.setScene(new Scene(root, 800, 600));
+            Scene scene = new Scene(root, 800, 600);
+            scene.getStylesheets().add(getClass().getResource("/css/styles.css").toExternalForm());
+            stage.setScene(scene);
             stage.setTitle("Snake Game - Main Menu");
 
         } catch (Exception e) {
@@ -238,8 +224,6 @@ public class LobbyController {
         alert.showAndWait();
     }
 
-    // Класс для отображения игры в таблице
-    // Класс для отображения игры в таблице
     public static class GameInfo {
         private final String name;
         private final String size;

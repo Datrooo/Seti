@@ -25,27 +25,21 @@ public class AckManager {
         this.maxRetries = Config.MAX_RETRIES;
     }
 
-    /**
-     * Регистрирует peer для отслеживания
-     */
-    // AckManager.java
     public void registerPeer(InetSocketAddress address, int playerId) {
         peers.compute(address, (addr, existingRaw) -> {
             PeerInfo existing = (PeerInfo) existingRaw;
 
             if (existing == null) {
-                Logger.debug("Registered peer: {} with id {}", addr, playerId);
+                Logger.info("[ACK-MGR] Registered NEW peer: {} with playerId={}", addr, playerId);
                 return new PeerInfo(addr, playerId);
             }
 
             int oldId = existing.getPlayerId();
 
-            // не ухудшаем: если уже знаем id, не перетираем на 0
             if (playerId == 0 || oldId == playerId) {
                 return existing;
             }
 
-            // апгрейд 0 -> realId, сохраняя pendingMessages
             if (oldId == 0 && playerId != 0) {
                 PeerInfo upgraded = new PeerInfo(addr, playerId);
                 upgraded.getPendingMessages().putAll(existing.getPendingMessages());
@@ -53,23 +47,15 @@ public class AckManager {
                 return upgraded;
             }
 
-            // иначе оставляем как есть
             return existing;
         });
     }
 
-
-    /**
-     * Удаляет peer
-     */
     public void unregisterPeer(InetSocketAddress address) {
         peers.remove(address);
         Logger.debug("Unregistered peer: {}", address);
     }
 
-    /**
-     * Отправляет сообщение с требованием подтверждения
-     */
     public void sendWithAck(SnakesProto.GameMessage message, InetSocketAddress destination) {
         PeerInfo peer = peers.get(destination);
         if (peer == null) {
@@ -78,37 +64,23 @@ public class AckManager {
             peer = peers.get(destination);
         }
 
-
         byte[] data = message.toByteArray();
         long msgSeq = message.getMsgSeq();
-
-        // Сохраняем для возможной ретрансмиссии
         peer.addPendingMessage(msgSeq, data);
-
-        // Отправляем
         transport.send(data, destination);
-
-        Logger.debug("Sent message seq={} to {}, waiting for ACK", msgSeq, destination);
+        Logger.info("[ACK-MGR] Sent message seq={} to {}, waiting for ACK", msgSeq, destination);
     }
 
-    /**
-     * Обрабатывает полученное AckMsg
-     */
-    public void handleAck(long msgSeq, InetSocketAddress sender) {
+    public void handleAck(long msgSeq, InetSocketAddress sender) { // Обработка полученного ack
         PeerInfo peer = peers.get(sender);
         if (peer == null) {
             return;
         }
-
         peer.removePendingMessage(msgSeq);
         peer.updateActivity();
-
-        Logger.debug("Received ACK for seq={} from {}", msgSeq, sender);
+        Logger.info("[ACK-MGR] ✓ Received ACK for seq={} from {}", msgSeq, sender);
     }
 
-    /**
-     * Отправляет AckMsg в ответ на полученное сообщение
-     */
     public void sendAck(SnakesProto.GameMessage originalMessage, InetSocketAddress destination, int myPlayerId) {
         if (!originalMessage.hasSenderId()) {
             return;
@@ -121,12 +93,10 @@ public class AckManager {
         );
 
         transport.send(ack.toByteArray(), destination);
-        Logger.debug("Sent ACK for seq={} to {}", originalMessage.getMsgSeq(), destination);
+        Logger.info("[ACK-MGR] Sent ACK for seq={} to {} (receiver_id={})", 
+                originalMessage.getMsgSeq(), destination, originalMessage.getSenderId());
     }
 
-    /**
-     * Проверяет таймауты и выполняет ретрансмиссии (вызывать периодически)
-     */
     public void checkTimeouts() {
         for (PeerInfo peer : peers.values()) {
             ConcurrentHashMap<Long, PeerInfo.PendingMessage> pending = peer.getPendingMessages();
@@ -136,25 +106,20 @@ public class AckManager {
                 PeerInfo.PendingMessage pendingMsg = entry.getValue();
 
                 if (pendingMsg.shouldRetry(ackTimeoutMs, maxRetries)) {
-                    // Ретрансмиссия
                     pendingMsg.incrementRetry();
                     transport.send(pendingMsg.getData(), peer.getAddress());
 
-                    Logger.warn("Retransmitting seq={} to {} (retry {})",
-                            msgSeq, peer.getAddress(), pendingMsg.getRetryCount());
+                    Logger.warn("[ACK-MGR] ⟳ Retransmitting seq={} to {} (retry {}/{})",
+                            msgSeq, peer.getAddress(), pendingMsg.getRetryCount(), maxRetries);
                 } else if (pendingMsg.getRetryCount() >= maxRetries) {
-                    // Превышен лимит попыток
                     pending.remove(msgSeq);
-                    Logger.error("Message seq={} to {} failed after {} retries",
+                    Logger.error("[ACK-MGR] ✗ Message seq={} to {} FAILED after {} retries",
                             msgSeq, peer.getAddress(), maxRetries);
                 }
             }
         }
     }
 
-    /**
-     * Проверяет таймауты всех peer'ов
-     */
     public void checkPeerTimeouts(long timeoutMs, Consumer<PeerInfo> onTimeout) {
         Logger.debug("checkPeerTimeouts called with timeoutMs={}, peers count={}",
                 timeoutMs, peers.size());
@@ -168,32 +133,21 @@ public class AckManager {
             }
         }
 
-        // Вызываем callback для каждого таймаутнувшего peer
         for (PeerInfo peer : timedOutPeers) {
             onTimeout.accept(peer);
         }
     }
 
-
-
-    /**
-     * Обновляет время активности peer'а
-     */
     public void updatePeerActivity(InetSocketAddress address) {
         PeerInfo peer = peers.get(address);
         if (peer != null) {
-            peer.updateActivity(); // Обновляем timestamp
+            peer.updateActivity();
             Logger.debug("Updated activity for peer {}", address);
         } else {
             Logger.warn("Trying to update activity for unknown peer: {}", address);
         }
     }
 
-    public PeerInfo getPeer(InetSocketAddress address) {
-        return peers.get(address);
-    }
-
-    // ДОБАВЬТЕ ЭТОТ МЕТОД:
     public List<PeerInfo> getAllPeers() {
         return new ArrayList<>(peers.values());
     }

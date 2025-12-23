@@ -8,8 +8,7 @@ public class Snake {
     private final List<Coord> body; // [0] - голова, [n-1] - хвост
     private Direction headDirection;
     private SnakeState state;
-    private Direction pendingDirection; // Следующее направление (из
-    // SteerMsg)
+    private Direction pendingDirection; // Следующее направление
 
     public Snake(int playerId, Coord headPosition, Direction initialDirection) {
         this.playerId = playerId;
@@ -29,9 +28,6 @@ public class Snake {
         this.pendingDirection = other.pendingDirection;
     }
 
-    /**
-     * Конструктор для восстановления змейки из списка координат (для десериализации)
-     */
     public Snake(int playerId, List<Coord> bodyCoords, Direction headDirection, SnakeState state) {
         this.playerId = playerId;
         this.body = new ArrayList<>(bodyCoords);
@@ -42,10 +38,6 @@ public class Snake {
 
     public Coord getHead() {
         return body.getFirst();
-    }
-
-    public Coord getTail() {
-        return body.getLast();
     }
 
     public List<Coord> getBody() {
@@ -61,48 +53,39 @@ public class Snake {
         return body.contains(coord);
     }
 
+    /**
+     * Устанавливает новое направление движения змейки.
+     * Более новые команды (с большим msg_seq в MasterNode) заменяют старые
+     * в пределах одного хода. Применяется в следующем вызове move().
+     * 
+     * @param newDirection новое направление (не может быть противоположным текущему)
+     */
     public void setDirection(Direction newDirection) {
-        // Нельзя повернуть на 180 градусов
         if (!newDirection.isOpposite(headDirection)) {
             this.pendingDirection = newDirection;
         }
     }
 
     public void move(int fieldWidth, int fieldHeight, boolean grow) {
-        // Применяем отложенное направление
         if (pendingDirection != null) {
             headDirection = pendingDirection;
             pendingDirection = null;
         }
 
-        // Вычисляем новую позицию головы
         Coord newHead = getHead().move(headDirection).wrap(fieldWidth, fieldHeight);
-
-        // Добавляем новую голову
         body.addFirst(newHead);
 
-        // Удаляем хвост, если не растем
-        if (!grow) {
+        if (!grow) { // Удаляем хвост, если не растем
             body.removeLast();
         }
     }
 
-    // ✅ ИСПРАВЛЕННЫЙ метод copy()
     public Snake copy() {
         Snake copied = new Snake(this.playerId, this.getHead(), this.headDirection);
-
-        // Очищаем body (там уже есть голова из конструктора)
         copied.body.clear();
-
-        // Копируем все сегменты тела
         copied.body.addAll(this.body);
-
-        // ✅ Копируем статус через state
         copied.state = this.state;
-
-        // Копируем отложенное направление
         copied.pendingDirection = this.pendingDirection;
-
         return copied;
     }
 
@@ -114,31 +97,21 @@ public class Snake {
         return state == SnakeState.ALIVE;
     }
 
-    // ✅ ДОБАВЛЕНО: Setter для alive через state
     public void setAlive(boolean alive) {
         this.state = alive ? SnakeState.ALIVE : SnakeState.ZOMBIE;
     }
-    // Добавить в класс Snake:
 
-    public Direction getPendingDirection() {
-        return pendingDirection;
-    }
-    // добавьте в Snake.java
     public Direction getDirectionForNextMove() {
         return (pendingDirection != null) ? pendingDirection : headDirection;
     }
 
-
-    public void setPendingDirection(Direction direction) {
-        this.pendingDirection = direction;
-    }
 
     public void setHeadDirection(Direction direction) {
         this.headDirection = direction;
     }
 
     public List<Coord> getBodyInternal() {
-        return body; // Возвращаем реальный список, не копию
+        return body;
     }
 
     public boolean isZombie() {
@@ -148,7 +121,6 @@ public class Snake {
     public void setState(SnakeState state) {
         this.state = state;
     }
-
 
     public int getPlayerId() {
         return playerId;

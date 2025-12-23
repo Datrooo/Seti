@@ -9,7 +9,6 @@
             xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="org.example.controller.GameController">
 
-    <!-- Верхняя панель - информация -->
     <top>
         <VBox styleClass="info-panel">
             <padding>
@@ -20,14 +19,12 @@
         </VBox>
     </top>
 
-    <!-- Центр - игровое поле -->
     <center>
         <StackPane>
             <Canvas fx:id="gameCanvas" width="800" height="600" styleClass="game-canvas"/>
         </StackPane>
     </center>
 
-    <!-- Правая панель - таблица игроков -->
     <right>
         <VBox spacing="10" prefWidth="250">
             <padding>
@@ -47,10 +44,9 @@
             <Separator/>
 
             <Label text="Controls:" style="-fx-font-weight: bold;"/>
-            <Label text="WASD or Arrow Keys" wrapText="true"/>
-            <Label text="ESC - Pause Menu" wrapText="true"/>
+            <Label text="WASD" wrapText="true"/>
 
-            <Region VBox.vgrow="ALWAYS"/> <!-- Spacer -->
+            <Region VBox.vgrow="ALWAYS"/>
 
             <Button fx:id="exitButton" text="Exit to Menu" onAction="#onExitToMenu"
                     prefWidth="200" styleClass="exit-button"/>

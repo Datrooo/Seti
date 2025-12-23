@@ -7,15 +7,7 @@ import org.example.node.NodeRole;
 import org.example.protocol.SnakesProto;
 import org.example.util.IdGenerator;
 
-import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
-
 public class MessageBuilder {
-    private static final AtomicLong msgSeqGenerator = new AtomicLong(0);
-
-    /**
-     * Создает PingMsg
-     */
     public static SnakesProto.GameMessage createPing(int senderId, int receiverId) {
         return SnakesProto.GameMessage.newBuilder()
                 .setMsgSeq(IdGenerator.generateMessageSeq())
@@ -25,14 +17,6 @@ public class MessageBuilder {
                 .build();
     }
 
-
-    private static long generateMsgSeq() {
-        return msgSeqGenerator.incrementAndGet();
-    }
-
-    /**
-     * Создает SteerMsg
-     */
     public static SnakesProto.GameMessage createSteer(int senderId, Direction direction) {
         SnakesProto.Direction protoDir = switch (direction) {
             case UP -> SnakesProto.Direction.UP;
@@ -50,9 +34,6 @@ public class MessageBuilder {
                 .build();
     }
 
-    /**
-     * Создает AckMsg
-     */
     public static SnakesProto.GameMessage createAck(long msgSeq, int senderId, int receiverId) {
         return SnakesProto.GameMessage.newBuilder()
                 .setMsgSeq(msgSeq)
@@ -62,9 +43,6 @@ public class MessageBuilder {
                 .build();
     }
 
-    /**
-     * Создает StateMsg
-     */
     public static SnakesProto.GameMessage createState(GameState state, int senderId) {
         SnakesProto.GameState protoState = StateSerializer.toProto(state);
 
@@ -77,9 +55,6 @@ public class MessageBuilder {
                 .build();
     }
 
-    /**
-     * Создает AnnouncementMsg
-     */
     public static SnakesProto.GameMessage createAnnouncement(
             String gameName,
             GameConfig config,
@@ -101,9 +76,6 @@ public class MessageBuilder {
                 .build();
     }
 
-    /**
-     * Создает JoinMsg
-     */
     public static SnakesProto.GameMessage createJoin(
             int senderId,
             String playerName,
@@ -124,12 +96,6 @@ public class MessageBuilder {
                 .build();
     }
 
-
-
-
-    /**
-     * Создает ErrorMsg
-     */
     public static SnakesProto.GameMessage createError(String errorMessage, int receiverId) {
         return SnakesProto.GameMessage.newBuilder()
                 .setMsgSeq(IdGenerator.generateMessageSeq())
@@ -140,9 +106,6 @@ public class MessageBuilder {
                 .build();
     }
 
-    /**
-     * Создает RoleChangeMsg
-     */
     public static SnakesProto.GameMessage createRoleChange(
             int senderId,
             int receiverId,
@@ -168,9 +131,6 @@ public class MessageBuilder {
                 .build();
     }
 
-    /**
-     * Создает DiscoverMsg
-     */
     public static SnakesProto.GameMessage createDiscover() {
         return SnakesProto.GameMessage.newBuilder()
                 .setMsgSeq(IdGenerator.generateMessageSeq())

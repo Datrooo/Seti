@@ -17,17 +17,14 @@
     <Separator/>
 
     <GridPane hgap="10" vgap="15">
-        <!-- Game Name -->
         <Label text="Game Name:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
         <TextField fx:id="gameNameField" promptText="My Awesome Game"
                    GridPane.columnIndex="1" GridPane.rowIndex="0" prefWidth="200"/>
 
-        <!-- Player Name -->
         <Label text="Your Name:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
         <TextField fx:id="playerNameField" promptText="Player"
                    GridPane.columnIndex="1" GridPane.rowIndex="1"/>
 
-        <!-- Field Size -->
         <Label text="Field Width:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
         <Spinner fx:id="widthSpinner" GridPane.columnIndex="1" GridPane.rowIndex="2"
                  prefWidth="200" editable="true"/>
@@ -36,12 +33,10 @@
         <Spinner fx:id="heightSpinner" GridPane.columnIndex="1" GridPane.rowIndex="3"
                  prefWidth="200" editable="true"/>
 
-        <!-- Food -->
         <Label text="Food Static:" GridPane.columnIndex="0" GridPane.rowIndex="4"/>
         <Spinner fx:id="foodStaticSpinner" GridPane.columnIndex="1" GridPane.rowIndex="4"
                  prefWidth="200" editable="true"/>
 
-        <!-- State Delay -->
         <Label text="State Delay (ms):" GridPane.columnIndex="0" GridPane.rowIndex="5"/>
         <Spinner fx:id="stateDelaySpinner" GridPane.columnIndex="1" GridPane.rowIndex="5"
                  prefWidth="200" editable="true"/>

@@ -19,33 +19,22 @@ public class GameEngine {
         this.collisionDetector = new CollisionDetector();
         this.foodSpawner = new FoodSpawner(field);
         this.snakeController = new SnakeController(field);
-
-        // начальная еда
         foodSpawner.spawnFood(gameState);
     }
 
-    /**
-     * Главный тик.
-     * Порядок ближе к ТЗ:
-     * 1) вычисляем, кто съест еду (по следующей клетке головы)
-     * 2) списываем еду/даём очки
-     * 3) двигаем змей (grow = ateFood)
-     * 4) детектим коллизии и удаляем умерших
-     * 5) досыпаем еду
-     */
+
     public synchronized void update() {
         int w = field.getWidth();
         int h = field.getHeight();
 
-        // 1) предсказание следующей головы и факта "съел еду"
+        // предсказание следующей головы и факта "съел еду"
         Map<Integer, Boolean> ateFood = new HashMap<>();
         Set<Coord> eatenFoodCells = new HashSet<>();
 
         for (Snake snake : gameState.getSnakes()) {
-            // и ALIVE, и ZOMBIE двигаются по правилам (ZOMBIE просто не управляется)
             if (!(snake.isAlive() || snake.isZombie())) continue;
 
-            Direction dir = snake.getDirectionForNextMove(); // добавим в Snake.java (ниже)
+            Direction dir = snake.getDirectionForNextMove();
             Coord nextHead = snake.getHead().move(dir).wrap(w, h);
 
             boolean eat = gameState.isFoodAt(nextHead);
@@ -56,44 +45,92 @@ public class GameEngine {
             }
         }
 
-        // 2) очки всем, кто съел (даже если несколько голов на одной еде)
+        // очки всем, кто съел (даже если несколько голов на одной еде)
         for (Snake snake : gameState.getSnakes()) {
             if (!snake.isAlive()) continue; // очки только живым игрокам
             if (Boolean.TRUE.equals(ateFood.get(snake.getPlayerId()))) {
                 gameState.getPlayer(snake.getPlayerId()).ifPresent(Player::incrementScore);
             }
         }
-        // удалить съеденную еду (каждая клетка ровно 1 раз)
         eatenFoodCells.forEach(gameState::removeFood);
 
-        // 3) движение (grow зависит от того, была ли еда в целевой клетке)
+        // движение (grow зависит от того, была ли еда в целевой клетке)
         for (Snake snake : gameState.getSnakes()) {
             if (!(snake.isAlive() || snake.isZombie())) continue;
             boolean grow = Boolean.TRUE.equals(ateFood.get(snake.getPlayerId()));
             snake.move(w, h, grow);
         }
 
-        // 4) коллизии (убиваем и ALIVE, и ZOMBIE)
+        // подготовка данных для начисления "киллов"
+        // bodyOwner: каждая клетка тела (кроме головы) -> playerId владельца
+        Map<Coord, Integer> bodyOwner = new HashMap<>();
+        for (Snake s : gameState.getSnakes()) {
+            if (!(s.isAlive() || s.isZombie())) continue;
+
+            List<Coord> body = s.getBody();
+            for (int i = 1; i < body.size(); i++) {
+                bodyOwner.put(body.get(i), s.getPlayerId());
+            }
+        }
+
+        // головы в одну клетку (head-on)
+        Map<Coord, List<Integer>> headsAt = new HashMap<>();
+        for (Snake s : gameState.getSnakes()) {
+            if (!(s.isAlive() || s.isZombie())) continue;
+            headsAt.computeIfAbsent(s.getHead(), k -> new ArrayList<>()).add(s.getPlayerId());
+        }
+
+        Set<Integer> headOnDeaths = new HashSet<>();
+        for (var e : headsAt.entrySet()) {
+            if (e.getValue().size() > 1) headOnDeaths.addAll(e.getValue());
+        }
+
+        // коллизии
         Set<Integer> deadSnakeIds = collisionDetector.detectCollisions(gameState.getSnakes());
 
+        // начисление +1 за убийство:
+        Map<Integer, Integer> killPoints = new HashMap<>();
+
+        for (Snake victim : gameState.getSnakes()) {
+            if (!(victim.isAlive() || victim.isZombie())) continue;
+
+            int victimId = victim.getPlayerId();
+            if (!deadSnakeIds.contains(victimId)) continue;      // начисляем только за реально умерших
+            if (headOnDeaths.contains(victimId)) continue;       // head-on: по ТЗ очки за убийство не начисляем
+
+            Integer killerId = bodyOwner.get(victim.getHead());  // голова victim попала в чьё-то тело?
+            if (killerId == null) continue;
+
+            if (killerId == victimId) continue;                  // сам в себя -> никому
+            if (deadSnakeIds.contains(killerId)) continue;       // killer тоже умер на этом ходу -> не даём
+
+            killPoints.merge(killerId, 1, Integer::sum);
+        }
+
+        for (var e : killPoints.entrySet()) {
+            int killerId = e.getKey();
+            int cnt = e.getValue();
+            gameState.getPlayer(killerId).ifPresent(p -> {
+                for (int i = 0; i < cnt; i++) p.incrementScore();
+            });
+        }
+
+        // удаление мёртвых змей/игроков + превращение тела в еду
         for (int deadId : deadSnakeIds) {
             gameState.getSnake(deadId).ifPresent(snake -> {
-                // тело в еду
                 foodSpawner.spawnFoodFromDeadSnake(gameState, snake.getBody());
-                // убрать змейку
                 gameState.removeSnake(deadId);
             });
 
-            // убрать игрока, если он был (у ZOMBIE игрок уже мог быть удалён при выходе)
             if (gameState.getPlayer(deadId).isPresent()) {
                 gameState.removePlayer(deadId);
             }
         }
 
-        // 5) досыпаем еду до нормы
+        //досыпаем еду до нормы
         foodSpawner.spawnFood(gameState);
 
-        // 6) номер состояния
+        //номер состояния
         gameState.incrementStateOrder();
 
         Logger.debug(
@@ -105,10 +142,9 @@ public class GameEngine {
         );
     }
 
-    public synchronized Snake addPlayer(Player player) {
+    public synchronized Snake addPlayer(Player player) throws IllegalStateException {
         gameState.addPlayer(player);
 
-        // ВАЖНО: не создаём Snake вручную, используем ваш же SnakeController
         Snake snake = snakeController.createSnake(player.getId(), gameState);
         gameState.addSnake(snake);
 
@@ -117,21 +153,24 @@ public class GameEngine {
     }
 
     public synchronized void removePlayer(int playerId) {
-        // по ТЗ при выходе игрока змейка становится ZOMBIE
         gameState.getSnake(playerId).ifPresent(snake -> {
             if (snake.isAlive()) {
                 snake.kill(); // делает ZOMBIE
                 Logger.info("Player {} left, snake became zombie", playerId);
-            } else if (snake.isZombie()) {
-                // если уже ZOMBIE и игрок ушёл давно — можно удалить змейку
-                // (оставляю как было у вас: удаляем окончательно)
-                //gameState.removeSnake(playerId);
             }
         });
 
         gameState.removePlayer(playerId);
     }
 
+    /**
+     * Обрабатывает команду поворота от игрока.
+     * Важно: вызывающая сторона (MasterNode) должна проверять msg_seq,
+     * чтобы более новые команды заменяли старые в пределах хода.
+     * 
+     * @param playerId ID игрока
+     * @param direction новое направление движения
+     */
     public synchronized void handleSteer(int playerId, Direction direction) {
         Optional<Snake> snakeOpt = gameState.getSnake(playerId);
         if (snakeOpt.isEmpty()) {
@@ -145,7 +184,7 @@ public class GameEngine {
             return;
         }
 
-        snake.setDirection(direction); // кладёт в pendingDirection
+        snake.setDirection(direction); // в pendingDirection
         Logger.debug("Player {} changed direction to {}", playerId, direction);
     }
 
