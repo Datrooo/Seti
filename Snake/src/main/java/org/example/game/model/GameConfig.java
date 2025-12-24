@@ -1,7 +1,5 @@
 package org.example.game.model;
 
-import org.example.util.Config;
-
 public record GameConfig(
         int width,
         int height,

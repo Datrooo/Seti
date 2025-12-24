@@ -15,16 +15,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Главный узел (MASTER) в топологии "звезда".
- * Отвечает за обработку игровой логики и синхронизацию состояния.
- * 
- * Реализует отслеживание msg_seq для SteerMsg согласно ТЗ:
- * - Накапливает команды поворота от всех игроков
- * - Более новая команда (с большим msg_seq) заменяет старую в пределах хода
- * - Пример: игрок отправил LEFT (seq=10), потом RIGHT (seq=11) 
- *   до смены хода → змейка повернет RIGHT
- */
 public class MasterNode extends Node {
     private final ScheduledExecutorService scheduler;
     private GameEngine gameEngine;
@@ -222,7 +212,6 @@ public class MasterNode extends Node {
         gameEngine.removePlayer(peer.getPlayerId());
         context.getNetworkManager().unregisterPeer(peer.getAddress());
         
-        // Удаляем информацию о последнем steer seq
         lastSteerSeq.remove(peer.getPlayerId());
         
         if (wasDeputy) {
@@ -247,7 +236,6 @@ public class MasterNode extends Node {
         int playerId = message.getSenderId();
         long msgSeq = message.getMsgSeq();
 
-        // Проверяем msg_seq: принимаем только более новые сообщения
         Long lastSeq = lastSteerSeq.get(playerId);
         if (lastSeq != null && msgSeq <= lastSeq) {
             Logger.debug("Ignoring old/duplicate steer from player {}: seq={} (last={})", playerId, msgSeq, lastSeq);
@@ -256,7 +244,6 @@ public class MasterNode extends Node {
             return;
         }
 
-        // Сохраняем msg_seq и применяем команду
         lastSteerSeq.put(playerId, msgSeq);
         gameEngine.handleSteer(playerId, direction);
         Logger.debug("Accepted steer from player {}: direction={}, seq={}", playerId, direction, msgSeq);
@@ -310,7 +297,6 @@ public class MasterNode extends Node {
         context.getNetworkManager().registerPeer(sender, newPlayerId);
 
         if (requestedRole != NodeRole.VIEWER) {
-            // Пытаемся добавить игрока и создать змейку
             try {
                 gameEngine.addPlayer(newPlayer);
                 Logger.info("Player {} joined the game as {} with ID {}",
@@ -320,14 +306,12 @@ public class MasterNode extends Node {
                     selectDeputy();
                 }
             } catch (IllegalStateException e) {
-                // Не удалось найти подходящий квадрат 5x5
                 Logger.warn("Cannot place snake for {}: {}", joinMsg.getPlayerName(), e.getMessage());
                 context.getNetworkManager().unregisterPeer(sender);
                 sendError("Cannot place snake: no suitable 5x5 square found on the field", sender);
                 return;
             }
         } else {
-            // Viewer не получает змейку
             gameEngine.getGameState().addPlayer(newPlayer);
             Logger.info("Viewer {} connected with ID {} (no snake created)",
                     joinMsg.getPlayerName(), newPlayerId);

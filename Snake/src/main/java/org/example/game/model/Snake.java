@@ -5,10 +5,10 @@ import java.util.List;
 
 public class Snake {
     private final int playerId;
-    private final List<Coord> body; // [0] - голова, [n-1] - хвост
+    private final List<Coord> body;
     private Direction headDirection;
     private SnakeState state;
-    private Direction pendingDirection; // Следующее направление
+    private Direction pendingDirection;
 
     public Snake(int playerId, Coord headPosition, Direction initialDirection) {
         this.playerId = playerId;
@@ -19,7 +19,6 @@ public class Snake {
         this.pendingDirection = null;
     }
 
-    // Конструктор для копирования
     public Snake(Snake other) {
         this.playerId = other.playerId;
         this.body = new ArrayList<>(other.body);
@@ -53,13 +52,7 @@ public class Snake {
         return body.contains(coord);
     }
 
-    /**
-     * Устанавливает новое направление движения змейки.
-     * Более новые команды (с большим msg_seq в MasterNode) заменяют старые
-     * в пределах одного хода. Применяется в следующем вызове move().
-     * 
-     * @param newDirection новое направление (не может быть противоположным текущему)
-     */
+  
     public void setDirection(Direction newDirection) {
         if (!newDirection.isOpposite(headDirection)) {
             this.pendingDirection = newDirection;
@@ -75,7 +68,7 @@ public class Snake {
         Coord newHead = getHead().move(headDirection).wrap(fieldWidth, fieldHeight);
         body.addFirst(newHead);
 
-        if (!grow) { // Удаляем хвост, если не растем
+        if (!grow) {
             body.removeLast();
         }
     }

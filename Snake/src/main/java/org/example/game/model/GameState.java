@@ -5,9 +5,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class GameState {
     private final GameConfig config;
-    private int stateOrder; // Номер состояния
-    private final Map<Integer, Snake> snakes; // playerId -> Snake
-    private final Map<Integer, Player> players; // playerId -> Player
+    private int stateOrder;
+    private final Map<Integer, Snake> snakes;
+    private final Map<Integer, Player> players;
     private final Set<Coord> foods;
 
     public GameState(GameConfig config) {

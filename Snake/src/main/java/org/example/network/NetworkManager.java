@@ -29,16 +29,19 @@ public class NetworkManager {
     }
 
     public void start() throws IOException {
-        transport.start();
-        discovery.start();
-        running = true;
+        try {
+            transport.start();
+            discovery.start();
+            running = true;
+        } catch (IOException e) {
+            transport.stop();
+            throw e;
+        }
 
-        // Запускаем приемник UDP пакетов
         executorService.submit(() -> {
             transport.receiveLoop();
         });
 
-        // Запускаем обработчик входящих пакетов
         executorService.submit(() -> {
             while (running) {
                 try {
@@ -53,7 +56,6 @@ public class NetworkManager {
             }
         });
 
-        // Запускаем проверку таймаутов
         executorService.submit(() -> {
             while (running) {
                 try {
@@ -68,7 +70,6 @@ public class NetworkManager {
             }
         });
 
-        // Регистрируем обработчик ACK сообщений
         dispatcher.onAck((message, sender) -> {
             ackManager.handleAck(message.getMsgSeq(), sender);
         });

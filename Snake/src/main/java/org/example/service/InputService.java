@@ -8,14 +8,12 @@ import org.example.util.Logger;
 import java.util.HashMap;
 import java.util.Map;
 
-// Сервис для обработки пользовательского ввода
 public class InputService {
     private final GameService gameService;
     private final Map<KeyCode, Direction> keyBindings;
     private Direction lastDirection;
     private long lastSteerTime;
-    private static final long MIN_STEER_INTERVAL_MS = 50; // Минимальный интервал между командами
-
+    private static final long MIN_STEER_INTERVAL_MS = 50;
     public InputService(GameService gameService) {
         this.gameService = gameService;
         this.keyBindings = new HashMap<>();
@@ -25,12 +23,6 @@ public class InputService {
     }
 
     private void setupDefaultBindings() {
-//        keyBindings.put(KeyCode.UP, Direction.UP);
-//        keyBindings.put(KeyCode.DOWN, Direction.DOWN);
-//        keyBindings.put(KeyCode.LEFT, Direction.LEFT);
-//        keyBindings.put(KeyCode.RIGHT, Direction.RIGHT);
-
-        // WASD
         keyBindings.put(KeyCode.W, Direction.UP);
         keyBindings.put(KeyCode.S, Direction.DOWN);
         keyBindings.put(KeyCode.A, Direction.LEFT);

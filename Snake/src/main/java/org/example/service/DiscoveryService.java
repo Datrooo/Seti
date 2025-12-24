@@ -11,7 +11,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
-// Сервис для поиска доступных игр через multicast
 public class DiscoveryService {
     private final MulticastDiscovery discovery;
     private final ConcurrentHashMap<String, GameInfo> availableGames;
@@ -71,7 +70,7 @@ public class DiscoveryService {
         }
     }
 
-    private void startTimeoutChecker() { // Проверяет устаревшие игры (не обновлялись > 5 секунд)
+    private void startTimeoutChecker() { 
         Thread checker = Thread.ofVirtual().start(() -> {
             while (active) {
                 try {
@@ -128,7 +127,7 @@ public class DiscoveryService {
         }
     }
 
-    public static class GameInfo { // Информация об обнаруженной игре
+    public static class GameInfo {
         private SnakesProto.GameAnnouncement announcement;
         private InetSocketAddress masterAddress;
         private long lastUpdate;

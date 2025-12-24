@@ -113,23 +113,25 @@ public class GameController {
 
         for (Snake snake : state.getSnakes()) {
             String playerName = "Unknown";
+            int playerScore = 0;
 
             for (Player p : state.getPlayers()) {
                 if (p.getId() == snake.getPlayerId()) {
                     playerName = p.getName();
+                    playerScore = p.getScore();
                     break;
                 }
             }
 
             String status = switch (snake.getState()) {
-                case ALIVE -> "🟢 Alive";
-                case ZOMBIE -> "💀 Zombie";
+                case ALIVE -> "Alive";
+                case ZOMBIE -> "Zombie";
                 default -> "?";
             };
 
             playersTable.getItems().add(new PlayerRow(
                     playerName,
-                    snake.getLength() -2,
+                    playerScore,
                     status
             ));
         }

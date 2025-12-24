@@ -29,7 +29,6 @@ public class FoodSpawner {
                 );
                 state.addFood(emptyCell);
             } catch (IllegalStateException e) {
-                // Нет свободных клеток
                 break;
             }
         }

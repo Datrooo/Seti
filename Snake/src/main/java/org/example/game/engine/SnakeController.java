@@ -19,26 +19,16 @@ public class SnakeController {
         this.random = new Random();
     }
 
-    /**
-     * Создает новую змейку для игрока согласно ТЗ:
-     * - Находит квадрат 5x5 без змеек
-     * - Размещает голову в центре квадрата
-     * - Хвост в одной из 4 соседних клеток случайно
-     * - Проверяет отсутствие еды на двух клетках
-     * @throws IllegalStateException если не удалось найти подходящий квадрат
-     */
+    
     public Snake createSnake(int playerId, GameState state) throws IllegalStateException {
-        // Ищем подходящий квадрат 5x5
         SnakePlacement placement = findEmpty5x5Square(state);
         
         if (placement == null) {
             throw new IllegalStateException("No suitable 5x5 square found for new snake");
         }
 
-        // Создаем змейку с головой в центре и хвостом в выбранном направлении
         Snake snake = new Snake(playerId, placement.head, placement.direction);
         
-        // Добавляем хвост (move с grow=true)
         snake.move(field.getWidth(), field.getHeight(), true);
         
         Logger.info("Created snake for player {}: head={}, tail={}, direction={}", 
@@ -47,15 +37,11 @@ public class SnakeController {
         return snake;
     }
 
-    /**
-     * Ищет квадрат 5x5 клеток без змеек, где можно разместить новую змейку.
-     * Учитывает замкнутость поля (тор).
-     */
+    
     private SnakePlacement findEmpty5x5Square(GameState state) {
         int w = field.getWidth();
         int h = field.getHeight();
         
-        // Создаем список всех возможных центров квадратов
         List<Coord> possibleCenters = new ArrayList<>();
         
         for (int x = 0; x < w; x++) {
@@ -71,7 +57,6 @@ public class SnakeController {
             return null;
         }
         
-        // Перемешиваем и пробуем найти подходящее размещение
         java.util.Collections.shuffle(possibleCenters, random);
         
         for (Coord center : possibleCenters) {
@@ -84,9 +69,6 @@ public class SnakeController {
         return null;
     }
 
-    /**
-     * Проверяет, свободен ли квадрат 5x5 с центром в данной точке
-     */
     private boolean is5x5SquareFree(Coord center, GameState state) {
         int w = field.getWidth();
         int h = field.getHeight();
@@ -107,9 +89,6 @@ public class SnakeController {
         return true;
     }
 
-    /**
-     * Пытается разместить змейку с головой в центре и хвостом в одном из 4 направлений
-     */
     private SnakePlacement tryPlaceSnakeAt(Coord center, GameState state) {
         Direction[] directions = Direction.values();
         List<Direction> shuffled = new ArrayList<>(List.of(directions));
@@ -119,10 +98,8 @@ public class SnakeController {
         int h = field.getHeight();
         
         for (Direction dir : shuffled) {
-            // Хвост будет в противоположном направлении от головы
             Coord tail = center.move(dir.opposite()).wrap(w, h);
             
-            // Проверяем, что на голове и хвосте нет еды
             if (!state.isFoodAt(center) && !state.isFoodAt(tail)) {
                 return new SnakePlacement(center, tail, dir);
             }
@@ -131,8 +108,5 @@ public class SnakeController {
         return null;
     }
     
-    /**
-     * Результат размещения змейки
-     */
     private record SnakePlacement(Coord head, Coord tail, Direction direction) {}
 }
