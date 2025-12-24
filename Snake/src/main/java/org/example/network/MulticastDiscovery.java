@@ -115,19 +115,47 @@ public class MulticastDiscovery {
     private NetworkInterface getNetworkInterface() throws SocketException {
         String override = System.getProperty("snakes.multicast.if", System.getenv("SNAKES_MULTICAST_IF"));
         if (override != null && !override.isBlank()) {
-            return NetworkInterface.getByName(override.trim());
+            NetworkInterface forced = NetworkInterface.getByName(override.trim());
+            if (forced != null && forced.isUp() && forced.supportsMulticast() && !forced.isLoopback() && hasIPv4Address(forced)) {
+                return forced;
+            } else {
+                Logger.warn("Multicast override '{}' is unusable (up={}, multicast={}, loopback={}, ipv4={})",
+                        override,
+                        forced != null && forced.isUp(),
+                        forced != null && forced.supportsMulticast(),
+                        forced != null && forced.isLoopback(),
+                        forced != null && hasIPv4Address(forced));
+            }
         }
 
         Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
         while (interfaces.hasMoreElements()) {
             NetworkInterface iface = interfaces.nextElement();
-            
-            if (iface.isUp() && iface.supportsMulticast() && !iface.isLoopback()) {
-                return iface;
+
+            if (!iface.isUp() || !iface.supportsMulticast() || iface.isLoopback()) {
+                continue;
+            }
+
+            if (!hasIPv4Address(iface)) {
+                // macOS often has IPv6-only pseudo interfaces; skip them for IPv4 multicast
+                continue;
+            }
+
+            return iface;
+        }
+
+        return null;
+    }
+
+    private boolean hasIPv4Address(NetworkInterface iface) throws SocketException {
+        Enumeration<InetAddress> addresses = iface.getInetAddresses();
+        while (addresses.hasMoreElements()) {
+            InetAddress addr = addresses.nextElement();
+            if (addr instanceof Inet4Address && !addr.isLoopbackAddress()) {
+                return true;
             }
         }
-        
-        return null;
+        return false;
     }
 
     public void sendAnnouncement(SnakesProto.GameMessage announcement) {

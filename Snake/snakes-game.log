@@ -14753,3 +14753,52 @@ java.net.BindException: Address already in use
 2025-12-24 11:18:45.762 [JavaFX Application Thread] INFO  SnakesGame - UDP Transport stopped
 2025-12-24 11:18:45.763 [JavaFX Application Thread] INFO  SnakesGame - NetworkManager stopped
 2025-12-24 11:18:45.763 [JavaFX Application Thread] INFO  SnakesGame - Left game successfully
+2025-12-24 11:22:00.376 [JavaFX Application Thread] INFO  SnakesGame - Starting Snakes Application
+2025-12-24 11:22:20.492 [JavaFX Application Thread] INFO  SnakesGame - Opening Create Game dialog
+2025-12-24 11:22:23.272 [JavaFX Application Thread] INFO  SnakesGame - Creating new game: 1
+2025-12-24 11:22:23.292 [JavaFX Application Thread] INFO  SnakesGame - UDP Transport started on port 9190
+2025-12-24 11:22:23.298 [JavaFX Application Thread] WARN  SnakesGame - Multicast join failed (game discovery disabled): Can't assign requested address (setsockopt failed)
+2025-12-24 11:22:23.304 [JavaFX Application Thread] INFO  SnakesGame - NetworkManager started successfully
+2025-12-24 11:22:23.306 [JavaFX Application Thread] INFO  SnakesGame - Creating new GameEngine for new game
+2025-12-24 11:22:23.311 [JavaFX Application Thread] INFO  SnakesGame - Created snake for player 1: head=Coord[x=31, y=22], tail=Coord[x=30, y=22], direction=RIGHT
+2025-12-24 11:22:23.313 [JavaFX Application Thread] INFO  SnakesGame - Player 1 joined the game with snake at Coord[x=32, y=22]
+2025-12-24 11:22:23.313 [JavaFX Application Thread] INFO  SnakesGame - Master created with snake at Coord[x=32, y=22]
+2025-12-24 11:22:23.314 [JavaFX Application Thread] INFO  SnakesGame - Using existing GameEngine from onStart()
+2025-12-24 11:22:23.315 [JavaFX Application Thread] INFO  SnakesGame - Starting timeout checker: timeoutMs=3000, checkInterval=1500ms
+2025-12-24 11:22:23.315 [JavaFX Application Thread] INFO  SnakesGame - MASTER node started for player 1
+2025-12-24 11:22:23.315 [JavaFX Application Thread] INFO  SnakesGame - MASTER node started for player 1
+2025-12-24 11:22:23.315 [JavaFX Application Thread] INFO  SnakesGame - Game created successfully as MASTER
+2025-12-24 11:22:23.315 [JavaFX Application Thread] INFO  SnakesGame - Game created: 1
+2025-12-24 11:22:23.343 [JavaFX Application Thread] INFO  SnakesGame - GameController initialized
+2025-12-24 11:22:23.344 [JavaFX Application Thread] INFO  SnakesGame - GameService connected to GameController
+2025-12-24 11:22:31.518 [JavaFX Application Thread] INFO  SnakesGame - Leaving game
+2025-12-24 11:22:31.519 [JavaFX Application Thread] INFO  SnakesGame - MASTER node stopped
+2025-12-24 11:22:31.521 [JavaFX Application Thread] INFO  SnakesGame - UDP Transport stopped
+2025-12-24 11:22:31.522 [JavaFX Application Thread] INFO  SnakesGame - NetworkManager stopped
+2025-12-24 11:22:31.522 [JavaFX Application Thread] INFO  SnakesGame - Left game successfully
+2025-12-24 11:22:31.522 [JavaFX Application Thread] INFO  SnakesGame - Exiting to main menu
+2025-12-24 11:23:02.760 [JavaFX Application Thread] INFO  SnakesGame - Exiting application
+2025-12-24 11:23:14.145 [JavaFX Application Thread] INFO  SnakesGame - Starting Snakes Application
+2025-12-24 11:23:15.748 [JavaFX Application Thread] INFO  SnakesGame - Opening Create Game dialog
+2025-12-24 11:23:18.608 [JavaFX Application Thread] INFO  SnakesGame - Creating new game: 11
+2025-12-24 11:23:18.622 [JavaFX Application Thread] INFO  SnakesGame - UDP Transport started on port 9190
+2025-12-24 11:23:18.626 [JavaFX Application Thread] WARN  SnakesGame - Multicast join failed (game discovery disabled): Can't assign requested address (setsockopt failed)
+2025-12-24 11:23:18.632 [JavaFX Application Thread] INFO  SnakesGame - NetworkManager started successfully
+2025-12-24 11:23:18.633 [JavaFX Application Thread] INFO  SnakesGame - Creating new GameEngine for new game
+2025-12-24 11:23:18.639 [JavaFX Application Thread] INFO  SnakesGame - Created snake for player 1: head=Coord[x=23, y=24], tail=Coord[x=22, y=24], direction=RIGHT
+2025-12-24 11:23:18.642 [JavaFX Application Thread] INFO  SnakesGame - Player 1 joined the game with snake at Coord[x=24, y=24]
+2025-12-24 11:23:18.642 [JavaFX Application Thread] INFO  SnakesGame - Master created with snake at Coord[x=24, y=24]
+2025-12-24 11:23:18.643 [JavaFX Application Thread] INFO  SnakesGame - Using existing GameEngine from onStart()
+2025-12-24 11:23:18.644 [JavaFX Application Thread] INFO  SnakesGame - Starting timeout checker: timeoutMs=3000, checkInterval=1500ms
+2025-12-24 11:23:18.644 [JavaFX Application Thread] INFO  SnakesGame - MASTER node started for player 1
+2025-12-24 11:23:18.644 [JavaFX Application Thread] INFO  SnakesGame - MASTER node started for player 1
+2025-12-24 11:23:18.644 [JavaFX Application Thread] INFO  SnakesGame - Game created successfully as MASTER
+2025-12-24 11:23:18.644 [JavaFX Application Thread] INFO  SnakesGame - Game created: 11
+2025-12-24 11:23:18.676 [JavaFX Application Thread] INFO  SnakesGame - GameController initialized
+2025-12-24 11:23:18.677 [JavaFX Application Thread] INFO  SnakesGame - GameService connected to GameController
+2025-12-24 11:23:31.958 [JavaFX Application Thread] INFO  SnakesGame - Leaving game
+2025-12-24 11:23:31.959 [JavaFX Application Thread] INFO  SnakesGame - MASTER node stopped
+2025-12-24 11:23:31.970 [JavaFX Application Thread] INFO  SnakesGame - UDP Transport stopped
+2025-12-24 11:23:31.970 [JavaFX Application Thread] INFO  SnakesGame - NetworkManager stopped
+2025-12-24 11:23:31.970 [JavaFX Application Thread] INFO  SnakesGame - Left game successfully
+2025-12-24 11:23:31.970 [JavaFX Application Thread] INFO  SnakesGame - Exiting to main menu
