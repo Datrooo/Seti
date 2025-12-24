@@ -25,42 +25,40 @@ public class MulticastDiscovery {
         this.running = false;
     }
 
-    public void start() {
+    public void start() throws IOException {
+        socket = new MulticastSocket(multicastPort);
+        group = InetAddress.getByName(multicastAddress);
+
         try {
-            socket = new MulticastSocket(multicastPort);
-            socket.setReuseAddress(true);
-            socket.setTimeToLive(255);
-            group = InetAddress.getByName(multicastAddress);
-            
-            NetworkInterface iface = getNetworkInterface();
-            
-            try {
-                socket.joinGroup(new InetSocketAddress(group, multicastPort), iface);
-                if (iface != null) {
-                    socket.setNetworkInterface(iface);
-                    Logger.info("Multicast started on {} ({})", iface.getDisplayName(), iface.getName());
-                } else {
-                    Logger.info("Multicast started on system default interface");
-                }
-            } catch (IOException e) {
-                Logger.warn("Multicast join failed (game discovery disabled): {}", e.getMessage());
-                if (socket != null) socket.close();
-                socket = null;
-                return;
-            }
-            
-            running = true;
-            Thread.ofVirtual().start(this::listenLoop);
+            NetworkInterface networkInterface = getNetworkInterface();
+            socket.joinGroup(new InetSocketAddress(group, multicastPort), networkInterface);
         } catch (Exception e) {
-            Logger.warn("Multicast initialization failed (game discovery disabled): {}", e.getMessage());
-            socket = null;
+            socket.joinGroup(group);
         }
+
+        running = true;
+
+        Thread.ofVirtual().start(this::listenLoop);
+
+        Logger.info("Multicast discovery started on {}:{}", multicastAddress, multicastPort);
     }
 
     public void stop() {
         running = false;
-        if (socket != null) {
-            socket.close();
+
+        try {
+            if (socket != null && group != null) {
+                try {
+                    NetworkInterface networkInterface = getNetworkInterface();
+                    socket.leaveGroup(new InetSocketAddress(group, multicastPort), networkInterface);
+                } catch (Exception e) {
+                    socket.leaveGroup(group);
+                }
+                socket.close();
+            }
+            Logger.info("Multicast discovery stopped");
+        } catch (IOException e) {
+            Logger.error("Error stopping multicast discovery: {}", e.getMessage());
         }
     }
 
@@ -83,16 +81,37 @@ public class MulticastDiscovery {
                 SnakesProto.GameMessage message = SnakesProto.GameMessage.parseFrom(data);
 
                 if (message.hasAnnouncement()) {
-                    for (SnakesProto.GameAnnouncement game : message.getAnnouncement().getGamesList()) {
+                    for (SnakesProto.GameAnnouncement game :
+                            message.getAnnouncement().getGamesList()) {
                         notifyListeners(game, senderAddress);
                     }
                 }
 
             } catch (IOException e) {
                 if (running) {
-                    Logger.error("Multicast receive error: {}", e.getMessage());
+                    Logger.error("Error receiving multicast: {}", e.getMessage());
                 }
             }
+        }
+    }
+
+    public void send(SnakesProto.GameMessage message) {
+        if (socket == null || !running) {
+            return;
+        }
+
+        try {
+            byte[] data = message.toByteArray();
+            DatagramPacket packet = new DatagramPacket(
+                    data,
+                    data.length,
+                    group,
+                    multicastPort
+            );
+            socket.send(packet);
+            Logger.debug("Sent multicast announcement");
+        } catch (IOException e) {
+            Logger.error("Failed to send multicast: {}", e.getMessage());
         }
     }
 
@@ -100,6 +119,9 @@ public class MulticastDiscovery {
         listeners.add(listener);
     }
 
+    public void removeAnnouncementListener(Consumer<AnnouncementWithAddress> listener) {
+        listeners.remove(listener);
+    }
 
     private void notifyListeners(SnakesProto.GameAnnouncement announcement, InetSocketAddress senderAddress) {
         AnnouncementWithAddress data = new AnnouncementWithAddress(announcement, senderAddress);
@@ -113,64 +135,39 @@ public class MulticastDiscovery {
     }
 
     private NetworkInterface getNetworkInterface() throws SocketException {
-        String override = System.getProperty("snakes.multicast.if", System.getenv("SNAKES_MULTICAST_IF"));
-        if (override != null && !override.isBlank()) {
-            NetworkInterface forced = NetworkInterface.getByName(override.trim());
-            if (forced != null && forced.isUp() && forced.supportsMulticast() && !forced.isLoopback() && hasIPv4Address(forced)) {
-                return forced;
-            } else {
-                Logger.warn("Multicast override '{}' is unusable (up={}, multicast={}, loopback={}, ipv4={})",
-                        override,
-                        forced != null && forced.isUp(),
-                        forced != null && forced.supportsMulticast(),
-                        forced != null && forced.isLoopback(),
-                        forced != null && hasIPv4Address(forced));
-            }
-        }
-
         Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
         while (interfaces.hasMoreElements()) {
             NetworkInterface iface = interfaces.nextElement();
-
-            if (!iface.isUp() || !iface.supportsMulticast() || iface.isLoopback()) {
-                continue;
-            }
-
-            if (!hasIPv4Address(iface)) {
-                // macOS often has IPv6-only pseudo interfaces; skip them for IPv4 multicast
-                continue;
-            }
-
-            return iface;
-        }
-
-        return null;
-    }
-
-    private boolean hasIPv4Address(NetworkInterface iface) throws SocketException {
-        Enumeration<InetAddress> addresses = iface.getInetAddresses();
-        while (addresses.hasMoreElements()) {
-            InetAddress addr = addresses.nextElement();
-            if (addr instanceof Inet4Address && !addr.isLoopbackAddress()) {
-                return true;
+            if (!iface.isLoopback() && iface.isUp() && iface.supportsMulticast()) {
+                return iface;
             }
         }
-        return false;
+        return NetworkInterface.getByInetAddress(InetAddress.getLoopbackAddress());
     }
 
     public void sendAnnouncement(SnakesProto.GameMessage announcement) {
         if (socket == null || socket.isClosed()) {
+            Logger.warn("Multicast socket not available, cannot send announcement");
             return;
         }
 
         try {
             byte[] data = announcement.toByteArray();
-            DatagramPacket packet = new DatagramPacket(data, data.length, group, multicastPort);
+            DatagramPacket packet = new DatagramPacket(
+                    data,
+                    data.length,
+                    group,
+                    multicastPort
+            );
+
             socket.send(packet);
+            Logger.debug("Sent multicast announcement");
+
         } catch (IOException e) {
-            Logger.error("Multicast send error: {}", e.getMessage());
+            Logger.error("Error sending multicast announcement: {}", e.getMessage());
         }
     }
+
 
     public record AnnouncementWithAddress(
             SnakesProto.GameAnnouncement announcement,
